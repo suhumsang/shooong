@@ -2886,7 +2886,7 @@ function showResult(g,t,info){
   ch.className='char';ch.removeAttribute('src');ch.style.top='';
   var praise=isPoly?(info.poly.c>=info.poly.n):(g==='S'||g==='A');
   if(praise){playBuf('wow',GAIN_WOW);}
-  else{playBuf('bonk',GAIN_BONK);}
+  /* bonk 제거 (사용자 확정 20260814) — S·A 아닌 세트는 등급음 없이 바로 코치/응원음으로 간다 */
   if(co)playCoach(co.main.id,400); /* 등급음 후 0.4초 · 1결과 1음성 (main만) */
   else playCheerSnd(400);          /* 코치 음성 없는 세트 — 응원음으로 대체 (사용자 확정 20260814) */
   var idx=-1;
