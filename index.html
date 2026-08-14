@@ -1529,7 +1529,30 @@ var PREM={
   on:1,                                              /* 0 = 전 기능 무료 (킬 스위치) */
   screens:['graph','cal','combo','wrong','setting'], /* 유료 화면 id (화면 id 자체는 무변경) */
   menus:['menu-graph','menu-cal','menu-stat','menu-wrong','menu-set'],
-  keys:['7c06da6340776d3521e0a6717e977589c4eece1e3467fc477fb7767c942cc7f5']                              /* 허용 키의 SHA-256 (소문자 hex) */
+  list:'keys.json',                                  /* 원격 키 목록 (같은 폴더 정적 파일). 탈퇴자 차단용 */
+  keys:[                                             /* 내장 기본 목록 = 원격을 못 받았을 때의 대체본 */
+    {id:'DEV',h:'7c06da6340776d3521e0a6717e977589c4eece1e3467fc477fb7767c942cc7f5'},
+    {id:'A01',h:'92ce37d4232087d9b8b16f8607f5b941a44e295370e2645ad97483da61c47af4'},
+    {id:'A02',h:'19a99029e0b32a2bdb0c95af64043ac1684dc01c8803920dd838c92074b43212'},
+    {id:'A03',h:'2c77d3dfa361e14353d3b41ad74b2712f6a164301ad1db213006ec7a36c037de'},
+    {id:'A04',h:'23162e7c1262c90a7eaf70337af427ed90e050e6bea503be1ec1cbcf4ec5943f'},
+    {id:'A05',h:'7cf58efe8a4885d686bc9fb5e885ca82a9c775f7e7c0833edfc7d67032314639'},
+    {id:'A06',h:'856899c4d50bd913c1b5f9248a07bf6bcd4b11ef24ddd71ab1a3f017953dcd05'},
+    {id:'A07',h:'aab4f0241d7a09985f1b2851f609827a4320495ab548a85854c1097f6556a550'},
+    {id:'A08',h:'a798f80343e1c22ca4e2780560e94a236baca7dd18eb7dc29b72810b2ad24b25'},
+    {id:'A09',h:'515749b7a6ca7487311781cac7120b603bfb8762770f7f94baa7a89cfb5ce07d'},
+    {id:'A10',h:'528249c33c7f8dc6e9f515b35e256ff29f8c8770d9b3c7868e32a42d6a8a6c53'},
+    {id:'A11',h:'d652691285907b61fc961ea0150e0f91e98c7e0170e1cfda9920d66e98d4faf4'},
+    {id:'A12',h:'0ce98dd227d9f77771e96ee13e50ed99d20a2509f4f40be1bf22cda1b371b076'},
+    {id:'A13',h:'3f16f2493f541bbbbff6a743c29e73408b3e28800f237100c143663ef4298702'},
+    {id:'A14',h:'4ca52fd05917d1b05da6f9a8ebb60f01ecb91126a2148246ab6fe0491b0dab17'},
+    {id:'A15',h:'684ab085e5754db65918c598c5c20c6cabd90d3a8cc0c16a1ccb8d29db2cf899'},
+    {id:'A16',h:'607b85a20241d663c905cd4c31d3d87cd594fcbbe2ec293eb2c659d96845c4b3'},
+    {id:'A17',h:'12cdb80dd294a06277d430e97cd9ab82e7a6c3fcbf05d4cd0919eba1637f35cf'},
+    {id:'A18',h:'ff0434f9bf893501cc2b42b6db2dbe46269917dca4a1c78431328542c6f927a6'},
+    {id:'A19',h:'47d80df418743629f3b378f76eac042da8db948b53bd5531bc4de41f8a7b68cc'},
+    {id:'A20',h:'41d5522c5dec3b138089eae4a9ab5665cb350cc2aecbaf782bfb3e311890e284'}
+  ]
 };
 /* SHA-256 (순수 JS — WebCrypto 는 file:// 에서 막히므로 미사용. 오프라인 동작 유지) */
 function sha256hex(msg){
@@ -1580,17 +1603,66 @@ function sha256hex(msg){
   return out;
 }
 function premLicKey(){return APP.slug+'_lic';}
+function premDbKey(){return APP.slug+'_licdb';}
 function premLicGet(){try{return localStorage.getItem(premLicKey())||'';}catch(e){return '';}}
+/* 유효 키 목록: 원격(keys.json)을 한 번이라도 받았으면 그 캐시본, 아니면 내장 기본 목록.
+   오프라인에서도 마지막으로 받은 목록으로 동작한다 (외부 API 아님 — 같은 폴더 정적 파일). */
+function premList(){
+  try{
+    var raw=localStorage.getItem(premDbKey());
+    if(raw){var o=JSON.parse(raw);if(o&&o.keys&&o.keys.length)return o.keys;}
+  }catch(e){}
+  return PREM.keys;
+}
+function premToday(){
+  var d=new Date();function z(n){return (n<10?'0':'')+n;}
+  return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());
+}
+function premEntry(h){
+  var L=premList();
+  for(var i=0;i<L.length;i++)if(L[i]&&L[i].h===h)return L[i];
+  return null;
+}
 function premOK(){
   if(!PREM.on)return true;
-  var v=premLicGet();
-  return !!v&&PREM.keys.indexOf(v)>=0;
+  var e=premEntry(premLicGet());
+  if(!e)return false;
+  if(e.exp&&premToday()>e.exp)return false;   /* 만료일(선택) — 없으면 무기한 */
+  return true;
+}
+/* 원격 목록 반영. 형식: {"keys":[{"id":"A01","h":"<sha256>","exp":"2026-12-31"(선택)}]} */
+function premApplyList(o){
+  if(!o||!o.keys||Object.prototype.toString.call(o.keys)!=='[object Array]')return false;
+  var out=[],i,e;
+  for(i=0;i<o.keys.length;i++){
+    e=o.keys[i];
+    if(e&&typeof e.h==='string'&&/^[0-9a-f]{64}$/.test(e.h))
+      out.push(e.exp?{id:e.id,h:e.h,exp:e.exp}:{id:e.id,h:e.h});
+  }
+  if(!out.length)return false;                 /* 빈 목록은 사고로 보고 무시 */
+  try{localStorage.setItem(premDbKey(),JSON.stringify({at:Date.now(),keys:out}));}catch(e2){}
+  premPaint();
+  return true;
+}
+/* 부팅 시 1회 갱신 시도. 실패해도 조용히 넘어간다 (오프라인 정상 동작). */
+function premSync(){
+  if(!PREM.list)return;
+  if(typeof fetch!=='function')return;
+  if(location.protocol.indexOf('http')!==0)return;   /* file:// 은 건너뜀 */
+  try{
+    fetch(PREM.list+'?t='+Date.now(),{cache:'no-store'})
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(o){if(o)premApplyList(o);})
+      .catch(function(){});
+  }catch(e){}
 }
 /* 키 정규화: 앞뒤 공백 제거 + 대문자 + 하이픈/공백 제거 (사용자 입력 흔들림 흡수) */
 function premNorm(k){return String(k==null?'':k).toUpperCase().replace(/[\s-]/g,'');}
 function premTry(k){
   var h=sha256hex(premNorm(k));
-  if(PREM.keys.indexOf(h)<0)return false;
+  var e=premEntry(h);
+  if(!e)return false;
+  if(e.exp&&premToday()>e.exp)return false;
   try{localStorage.setItem(premLicKey(),h);}catch(e){}
   premPaint();
   return true;
@@ -3515,7 +3587,7 @@ window.NPW={curProb:curProb,startSet:startSet,openSets:openSets,showResult:showR
   playCoach:playCoach,coachSrc:coachSrc,coachStop:coachStop,coachLastPlay:function(){return _coachLast;},
   renderGr2:renderGr2,
   /* 프리미엄 잠금 (2026-08-14) */
-  sha256hex:sha256hex,premOK:premOK,premTry:premTry,premNorm:premNorm,
+  sha256hex:sha256hex,premOK:premOK,premTry:premTry,premNorm:premNorm,premApplyList:premApplyList,premList:premList,premSync:premSync,premEntry:premEntry,
   premOpen:premOpen,premClose:premClose,premPaint:premPaint,premGate:premGate,
   exitToWrong:exitToWrong,show:show,LSKEY:LSKEY};
 
@@ -3531,6 +3603,7 @@ window.NPW={curProb:curProb,startSet:startSet,openSets:openSets,showResult:showR
     try{navigator.serviceWorker.register('sw.js');}catch(e){}
   }
   premPaint(); /* 유료 화면 자물쇠 표시 (2026-08-14) */
+  premSync();  /* 원격 키 목록 갱신 — 탈퇴자 차단 (2026-08-14) */
   renderHome();
   show('home');
 })();
