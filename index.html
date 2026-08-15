@@ -1249,7 +1249,7 @@ var DBS=(function(){
   function gamBlank(){return {
     bc:{n:0,at:null},bs:{n:0,at:null},        /* 역대 베스트 콤보/스트레이트 */
     streak:{cur:0,best:0,last:null},          /* 스트릭 (미션 완주 연속일) */
-    cheers:0,                                 /* 3세트 칭찬 누적 (영구 배지 e10) */
+    cheers:0,                                 /* 칭찬 누적 (영구 배지 e10) */
     tot:{probs:0},                            /* 누적 완료 문항 */
     brk:0,                                    /* 병목 격파 연속 카운터 */
     badges:{},                                /* 영구 배지 {id: 획득 ISO} */
@@ -2265,7 +2265,7 @@ var PERM_BADGES=[
   {id:'e07',name:'한 달의 습관',desc:'30일 연속 완주하면 획득해요',chk:function(d,c){return d.gam.streak.best>=30;}},
   {id:'e08',name:'천 문제',desc:'누적 1,000문제를 완료하면 획득해요',chk:function(d,c){return d.gam.tot.probs>=1000;}},
   {id:'e09',name:'만 문제',desc:'누적 10,000문제를 완료하면 획득해요',chk:function(d,c){return d.gam.tot.probs>=10000;}},
-  {id:'e10',name:'삼세트 습관',desc:'3세트 칭찬을 30번 받으면 획득해요',chk:function(d,c){return d.gam.cheers>=30;}},
+  {id:'e10',name:'두세트 습관',desc:'2세트 칭찬을 30번 받으면 획득해요',chk:function(d,c){return d.gam.cheers>=30;}},
   /* 실력 축 8 */
   {id:'s01',name:'콤보 파이브',desc:'콤보 5를 달성하면 획득해요',chk:function(d,c){return d.gam.bc.n>=5;}},
   {id:'s02',name:'콤보 텐',desc:'콤보 10을 달성하면 획득해요',chk:function(d,c){return d.gam.bc.n>=10;}},
@@ -2459,7 +2459,8 @@ var COACH={
   streak:['오늘도 왔네! 좋아!','연속 훈련! 이게 꾸준함이지!'],
   bottleneck:['병목 뚫었다!','오! 이거 약점 아니었는데?','잡았다! 약점 격파!']
 };
-var CHEER={n:0};          /* 3세트 칭찬 런타임 카운터 (스펙 4장) — 앱 종료·중도 이탈 시 리셋 */
+var PRAISE_EVERY=2;       /* 칭찬 발동 주기(세트). 3→2 완화 (사용자 확정 20260815). 응원음과 자리를 나눠 갖는다 */
+var CHEER={n:0};          /* 칭찬 런타임 카운터 (스펙 4장) — 앱 종료·중도 이탈 시 리셋 */
 var COACH_ROT={};         /* 카테고리별 로테이션 인덱스 (런타임) */
 function coachRot(key,n){var v=(COACH_ROT[key]||0)%n;COACH_ROT[key]=v+1;return v;}
 function coachZ2(n){return (n<10?'0':'')+n;}
@@ -2547,7 +2548,7 @@ function finishSet(){
     pstats=polyMissionStats(d,w.no);
     if(pstats)d.polyLog.push({m:w.no,c3:pstats.c3,c5:pstats.c5,keep:pstats.keep,g:pstats.g,lv:d.flashLv,at:at});
   }
-  /* 게이미피케이션 (스펙 1·4·5·6장): 베스트 갱신 + 3세트 칭찬 카운터 + 코치 이벤트 */
+  /* 게이미피케이션 (스펙 1·4·5·6장): 베스트 갱신 + 칭찬 카운터 + 코치 이벤트 */
   var gs=dayGamScan(d,locDate(at));
   var comboInc=!!(st.cuts&&info&&!info.reason&&(gFinal==='S'||gFinal==='A')); /* 이 세트가 콤보를 올렸나 */
   var straightInc=!!(comboInc&&gFinal==='S');
@@ -2555,7 +2556,7 @@ function finishSet(){
   if(gs.mc>d.gam.bc.n){if(d.gam.bc.n>=3)recEv=true;d.gam.bc={n:gs.mc,at:at};}
   if(gs.ms>d.gam.bs.n){if(d.gam.bs.n>=3)recEv=true;d.gam.bs={n:gs.ms,at:at};}
   CHEER.n++;                                 /* 연속 완료 (등급 무관·RETRY·다항 포함 — 스펙 4장) */
-  var cheerEv=(CHEER.n%3===0);
+  var cheerEv=(CHEER.n%PRAISE_EVERY===0);
   if(cheerEv)d.gam.cheers++;
   d.gam.tot.probs+=st.ps.length;             /* 누적 완료 문항 (RETRY·다항 포함 — e08/e09) */
   /* 병목(재도전 기록 경신) 이벤트 — s07 연속 카운터·⏱·코치 H 공용 (스펙 6장 H·8장) */
@@ -2649,7 +2650,7 @@ function exitPlay(){
     d.log.push({w:S.wod,s:S.set,g:null,t:Math.round(S.elapsed*10)/10,wr:S.setWrong,
       at:new Date().toISOString(),tin:setElapsedFromProbs(S.probMs),sub:st&&st.sub,comp:0,reason:'INCOMPLETE'});
     DBS.save();
-    CHEER.n=0; /* 3세트 칭찬 카운터 리셋 — 중도 이탈 발생 시 (스펙 4장) */
+    CHEER.n=0; /* 칭찬 카운터 리셋 — 중도 이탈 발생 시 (스펙 4장) */
   }
   openSets(S.wod);
 }
