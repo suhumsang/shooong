@@ -250,9 +250,12 @@
   /* 비교 오답 표시: 색상 반전 → O/X 기호 (사용자 확정 20260814 — 시안: 정답=파란 O 링, 오답=빨간 X, 카드 색 무변경) */
   #cmp .dcard.correct::after{content:'';position:absolute;top:0;left:50%;width:46px;height:46px;
     transform:translate(-50%,-58%);border:9px solid #4A78C9;border-radius:50%;box-sizing:border-box;pointer-events:none}
-  #cmp .dcard.wrong::after{content:'\2715';position:absolute;top:0;left:50%;transform:translate(-50%,-58%);
-    font-size:46px;font-weight:900;line-height:1;color:var(--bad);pointer-events:none;
-    text-shadow:0 0 3px var(--bg)}
+  /* X 는 글리프 대신 9px 두께 대각선 2줄 — O 링(border 9px)과 굵기 일치 (사용자 확정 20260815) */
+  #cmp .dcard.wrong::after{content:'';position:absolute;top:0;left:50%;width:46px;height:46px;
+    transform:translate(-50%,-58%);pointer-events:none;box-sizing:border-box;
+    background:
+      linear-gradient(45deg,transparent calc(50% - 4.5px),var(--bad) calc(50% - 4.5px),var(--bad) calc(50% + 4.5px),transparent calc(50% + 4.5px)),
+      linear-gradient(-45deg,transparent calc(50% - 4.5px),var(--bad) calc(50% - 4.5px),var(--bad) calc(50% + 4.5px),transparent calc(50% + 4.5px))}
   #cmp .frac{display:flex;flex-direction:column;align-items:center;line-height:1}
   #cmp .num,#cmp .den{font-size:38px;font-weight:800;padding:0 6px;color:var(--ink);font-variant-numeric:tabular-nums}
   #cmp .bar{height:3px;background:var(--fill);width:84%;margin:8px 0;border-radius:2px}
@@ -392,6 +395,8 @@
   /* 비교 문항 정답 기호 박스 (사용자 확정 20260814 — 시안: 기호 인라인 박스, 빨간 기호) */
   .wrow .anssym{display:inline-block;border:1.5px solid var(--line);border-radius:6px;background:var(--card);
     padding:0 8px;margin:0 8px;color:var(--bad);font-weight:900;font-size:16px;line-height:1.5}
+  /* 비교 문항 계산값 줄 (사용자 확정 20260815 — 분수=나눈 값, 곱셈=곱한 값. 오답색) */
+  .wrow .wv{font-size:14px;font-weight:800;color:var(--bad);margin-top:4px;font-variant-numeric:tabular-nums}
   .wrow .wa{font-size:12px;font-weight:700;margin-top:3px}
   .wa .no1{color:#C0392B}.wa .yes1{color:#2A9B71}
   .emptymsg{text-align:center;color:var(--ink-soft);font-weight:600;font-size:14px;margin-top:40px}
@@ -440,6 +445,16 @@
   .tabs.icons.gr2in button.sel .gl{background:var(--press);border-color:var(--ink);box-shadow:none}
   .totcard{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-radius:16px;padding:14px 16px;margin-bottom:8px;font-weight:800;color:var(--ink);flex:none}
   .totcard b{font-size:20px;font-weight:900}
+  /* 일일기록 상세 요약 (사용자 확정 20260815) — 2열 압축, 카드 자체 스크롤 없음 */
+  #dailySummary{gap:3px!important;padding:11px 14px;font-size:13px}
+  #dailySummary .dsgrid{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;row-gap:3px}
+  #dailySummary .dsc{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  #dailySummary .dsc span{color:var(--ink-soft);font-weight:700}
+  #dailySummary .dsc b{font-size:14px;font-weight:900;white-space:nowrap}
+  #dailySummary .dsgl{margin-top:2px;display:flex;flex-direction:column;gap:2px}
+  #dailySummary .dsg{font-size:12px;font-weight:800;line-height:1.35;word-break:break-all}
+  #dailySummary .dsg b{font-size:13px;font-weight:900}
+  #dailySummary .dsg span{color:var(--ink-soft);font-weight:700;margin-left:3px}
   .grow{display:flex;justify-content:space-between;align-items:center;padding:11px 6px;border-bottom:1px solid var(--line);font-weight:800;color:var(--ink);font-size:15px}
   .grow .gd{background:var(--surface);border-radius:8px;padding:2px 10px;color:var(--ink-soft);font-size:13px}
   .heat{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:4px}
@@ -1041,16 +1056,26 @@ function gradeOf(t,cuts){
   if(t<=cuts[3])return 'C';
   return 'D';
 }
-/* 정확도 게이트 (설계서 03 — 다항 미적용, 이중 적용 금지) */
-function applyAccuracyGate(grade,wrongCount,completed){
+/* 비교(분수·곱셈) 세트 오답 허용 상한 — 초과 시 RETRY. 사용자 확정 20260815 */
+var CMP_WRONG_MAX=10;
+/* 세트가 비교 종목인지 (frac·mulc 전용 완화 규칙 적용 대상) */
+function isCmpSet(st){
+  if(!st||!st.ps||!st.ps.length)return false;
+  for(var i=0;i<st.ps.length;i++){if(st.ps[i].t!=='frac'&&st.ps[i].t!=='mulc')return false;}
+  return true;
+}
+/* 정확도 게이트 (설계서 03 — 다항 미적용, 이중 적용 금지)
+   isCmp=true (비교 세트): 오답 CMP_WRONG_MAX 까지 통과·시간 등급 그대로, 캡 없음 (사용자 확정 20260815) */
+function applyAccuracyGate(grade,wrongCount,completed,isCmp){
   if(!completed)return {grade:null,reason:'INCOMPLETE'};
+  if(isCmp)return wrongCount>CMP_WRONG_MAX?{grade:null,reason:'RETRY'}:{grade:grade,reason:null};
   if(wrongCount>=2)return {grade:null,reason:'RETRY'};
   if(wrongCount===1&&(grade==='S'||grade==='A'))return {grade:'B',reason:'CAPPED'};
   return {grade:grade,reason:null};
 }
-function gradeByCuts(cuts,tin,wr,comp){
+function gradeByCuts(cuts,tin,wr,comp,isCmp){
   if(!cuts)return {grade:null,reason:'UNDEFINED_BLOCK'};
-  return applyAccuracyGate(gradeOf(tin,cuts),wr,comp);
+  return applyAccuracyGate(gradeOf(tin,cuts),wr,comp,isCmp);
 }
 /* 다항 미션 등급 (설계서 05 — 20문항 정답 수. 생성기 py 의 FLASH_GRADE 상수는 데드코드이자 오값) */
 function polyGrade(c){
@@ -1078,6 +1103,26 @@ function probText(p){
   if(p.t==='poly')return p.terms.join(' + ')+' = '+p.ans;
   if(p.t==='frac')return p.l[0]+'/'+p.l[1]+' □ '+p.r[0]+'/'+p.r[1]+'  (답 '+p.ans+')';
   return p.l[0]+'×'+p.l[1]+' □ '+p.r[0]+'×'+p.r[1]+'  (답 '+p.ans+')';
+}
+/* 비교 문항 계산값 표시 (사용자 확정 20260815 — 분수=나눈 값, 곱셈=곱한 값)
+   유효숫자 4자리. 두 값이 같게 보이면 자릿수를 늘려 반드시 구분한다 */
+function cmpVal(t,side){return t==='frac'?side[0]/side[1]:side[0]*side[1];}
+function cmpNum(v,dig){
+  var n=Number(v.toPrecision(dig));
+  return n.toLocaleString('en-US',{maximumFractionDigits:20});
+}
+function cmpFix(v,f){return (Math.round(v*Math.pow(10,f))/Math.pow(10,f)).toLocaleString('en-US',{maximumFractionDigits:f});}
+function cmpValHTML(p){
+  if(p.t!=='frac'&&p.t!=='mulc')return '';
+  var lv=cmpVal(p.t,p.l),rv=cmpVal(p.t,p.r),ls,rs,dig;
+  if(p.t==='mulc'){                      /* 곱셈비교: 곱한 값 그대로 (소수 1자리) */
+    ls=cmpFix(lv,1); rs=cmpFix(rv,1);
+    for(dig=2;ls===rs&&dig<=6;dig++){ls=cmpFix(lv,dig);rs=cmpFix(rv,dig);}
+  }else{                                 /* 분수비교: 나눈 값 유효숫자 4자리 */
+    dig=4;
+    do{ ls=cmpNum(lv,dig); rs=cmpNum(rv,dig); dig++; }while(ls===rs&&dig<=12);
+  }
+  return '<div class="wv">'+ls+' '+(p.ans==='<'?'&lt;':'&gt;')+' '+rs+'</div>';
 }
 /* 오답장 화면 전용: 비교 문항은 정답 기호 인라인 박스 (사용자 확정 20260814 — CSV·PDF는 probText 유지) */
 function probWrongHTML(p){
@@ -1210,6 +1255,16 @@ function selfTest(){
   if(!(g4.grade===null&&g4.reason==='UNDEFINED_BLOCK'))errs.push('gate UNDEFINED_BLOCK');
   var g5=gradeByCuts(CUTS.add2,45,1,true); /* 오답1 + 시간 B → B 유지 (캡 미작동 구간) */
   if(!(g5.grade==='B'&&g5.reason===null))errs.push('gate B유지');
+  /* 검증 8장: 비교 세트 완화 (오답 10까지 통과·캡 없음, 11부터 RETRY) */
+  var c1=gradeByCuts(CUTS.fracCmp,100,10,true,true);
+  if(!(c1.grade==='S'&&c1.reason===null))errs.push('cmp 오답10 S유지');
+  var c2=gradeByCuts(CUTS.fracCmp,100,11,true,true);
+  if(!(c2.grade===null&&c2.reason==='RETRY'))errs.push('cmp 오답11 RETRY');
+  var c3g=gradeByCuts(CUTS.mulCmpA,100,10,true,false);
+  if(!(c3g.grade===null&&c3g.reason==='RETRY'))errs.push('cmp 플래그없으면 기존규칙');
+  if(!isCmpSet({ps:[{t:'frac'},{t:'frac'}]}))errs.push('isCmpSet frac');
+  if(!isCmpSet({ps:[{t:'mulc'}]}))errs.push('isCmpSet mulc');
+  if(isCmpSet({ps:[{t:'add'}]}))errs.push('isCmpSet add');
   /* 검증 8장: 다항 등급 (설계서 05) */
   if(polyGrade(20)!=='S'||polyGrade(19)!=='A'||polyGrade(18)!=='A'||polyGrade(17)!=='B'
     ||polyGrade(15)!=='B'||polyGrade(14)!=='C'||polyGrade(12)!=='C'||polyGrade(11)!=='D')errs.push('polyGrade');
@@ -2207,7 +2262,7 @@ var DAILY_BADGES=[
   {bit:1,  e:'🔥', name:'콤보'},        /* 콤보 5 도달 */
   {bit:2,  e:'⚡', name:'스트레이트'},   /* 스트레이트 3 도달 */
   {bit:4,  e:'🎯', name:'정확성'},      /* 당일 정답률 95% 이상 (완료 세트 문항 합산) */
-  {bit:8,  e:'⏱', name:'스피드'},      /* 동일 세트 재도전 tin 단축 1회 이상 */
+  {bit:8,  e:'⏱️', name:'스피드'},      /* 동일 세트 재도전 tin 단축 1회 이상 */
   {bit:16, e:'🏆', name:'꾸준함'},      /* 미션 완주 (스트릭 인정일과 동일) */
   {bit:32, e:'🧠', name:'약점'},        /* 오답 다시 풀기 해결 (wrongLog res 당일) */
   {bit:64, e:'📈', name:'슈우웅'}       /* 등급 계산 ▲ 발생 (이벤트 기반) */
@@ -2528,7 +2583,7 @@ function finishSet(){
     d.log.push({w:S.wod,s:S.set,g:null,t:t,wr:S.setWrong,at:at,tin:tin,sub:st.sub,comp:1,reason:null});
     info={poly:{c:c3+c5,n:st.ps.length}};
   }else{
-    var r=gradeByCuts(st.cuts,tin,S.setWrong,true);
+    var r=gradeByCuts(st.cuts,tin,S.setWrong,true,isCmpSet(st));
     if(r.grade===null){
       /* RETRY: done 미기록 → 세트 미완료 유지, 재통과해야 미션 완주 (확정 4) */
       d.log.push({w:S.wod,s:S.set,g:null,t:t,wr:S.setWrong,at:at,tin:tin,sub:st.sub,comp:1,reason:r.reason});
@@ -2836,7 +2891,7 @@ function showResult(g,t,info){
     note='<br>다항 등급은 미션 완주 시 5세트 합산으로 판정합니다.';
   }else if(info&&info.reason==='RETRY'){
     big='<div class="rg">재도전</div>';
-    note='<br>오답 2문제 이상은 등급 없이 미완료로 남습니다.'; /* 1줄 유지 — 캐릭터 이미지와 겹침 방지 */
+    note='<br>오답 '+(isCmpSet(curSet())?CMP_WRONG_MAX+1:2)+'문제 이상은 등급 없이 미완료로 남습니다.'; /* 1줄 유지 — 캐릭터 이미지와 겹침 방지 */
   }else{
     big='<div class="rg'+(g?' g-'+g:'')+'">'+(g||'—')+'</div>';
     if(info&&info.reason==='CAPPED')note='<br>오답 1문제는 등급이 B까지만 인정됩니다.';
@@ -3210,30 +3265,58 @@ function renderDaily(){
   $('dailyDate').textContent=DV.y+'년 '+(DV.m+1)+'월 '+DV.d+'일';
   var d=DBS.get(),me=monthEntries(d.log,DV.y,DV.m,logV4);
   var tq=0,tok=0,tt=0,rows='';
+  /* 일일 상세 집계 (사용자 확정 20260815) */
+  var nSet=0,nRetry=0,fOk=0,fTot=0,GORD=['S','A','B','C','D'],gset={S:[],A:[],B:[],C:[],D:[]};
   function z(n){return (n<10?'0':'')+n;}
   for(var i=0;i<me.length;i++){
     if(me[i].day!==DV.d)continue;
     var e=me[i].e,w=wodByNo(e.w),st=w&&setByNo(w,e.s);
     tt+=e.tin||0; /* 플레이타임 = tin */
     if(!st)continue;
+    nSet++;
+    if(e.reason==='RETRY')nRetry++;
+    if(e.g&&gset[e.g]&&gset[e.g].indexOf(e.s)<0)gset[e.g].push(e.s);
+    if(POLY_SETS[e.s]){fTot+=st.ps.length;fOk+=st.ps.length-(e.wr||0);}
     tq+=st.ps.length;tok+=st.ps.length-(e.wr||0);
     var dt=new Date(e.at);
     rows+='<div class="srow"><div class="st1">'
       +'<div class="a">'+z(dt.getHours())+':'+z(dt.getMinutes())+' · 미션 '+e.w+' SET '+e.s+'</div>'
-      +'<div class="b">'+setLabel(st)+' · 올바른 '+(st.ps.length-(e.wr||0))+' / '+st.ps.length+' · '+fmtSec(e.tin)+'</div>'
+      +'<div class="b">'+setLabel(st)+' · 정답 '+(st.ps.length-(e.wr||0))+' / '+st.ps.length+' · '+fmtSec(e.tin)+'</div>'
       +'</div><div class="sg'+(e.g?' g-'+e.g:'')+'">'+(e.g||'—')+'</div></div>';
   }
   /* 그날 최고 콤보/스트레이트 (스펙 1장: 일일기록 — 전부 파생, 2 미만 숨김) */
   var gsDay=dayGamScan(d,locDate(new Date(DV.y,DV.m,DV.d)));
   var comboMax=comboLineTxt(gsDay.mc,gsDay.ms);
-  var dayFl=dailyGet(d,locDate(new Date(DV.y,DV.m,DV.d)));
+  var dayIso2=locDate(new Date(DV.y,DV.m,DV.d));
+  var dayFl=dailyGet(d,dayIso2);
+  /* 미션 완주 수 = 그날 polyLog append 수 (완주 시점 1회만 기록됨) */
+  var misNo=[];
+  for(var pj=0;pj<d.polyLog.length;pj++){var pl=d.polyLog[pj];if(pl.at&&locDate(pl.at)===dayIso2&&misNo.indexOf(pl.m)<0)misNo.push(pl.m);}
+  misNo.sort(function(x,y){return x-y;});
+  var misTxt=misNo.length?misNo.map(function(m){return m+'회';}).join(', '):'—';
+  function pct(n,t){return t?' ('+(Math.round(n/t*1000)/10)+'%)':'';}
+  function dsc(l,v){return '<div class="dsc"><span>'+l+'</span><b>'+v+'</b></div>';}
+  var gLines='';
+  for(var gi=0;gi<GORD.length;gi++){
+    var gk=GORD[gi],arr=gset[gk];
+    if(!arr.length)continue;                       /* 없는 등급 줄은 숨김 — 카드 높이 억제 */
+    arr.sort(function(x,y){return x-y;});
+    gLines+='<div class="dsg"><b class="g-'+gk+'">'+gk+'</b>-'+arr.join(',')+'<span>(총 '+arr.length+' 세트)</span></div>';
+  }
   $('dailySummary').innerHTML=
-    '<div style="display:flex;justify-content:space-between"><span>질문</span><b>'+tq.toLocaleString()+'</b></div>'
-    +'<div style="display:flex;justify-content:space-between"><span>정답</span><b>'+tok.toLocaleString()+'</b></div>'
-    +'<div style="display:flex;justify-content:space-between"><span>플레이타임</span><b>'+fmtMin(tt)+'</b></div>'
-    +(comboMax?'<div style="display:flex;justify-content:space-between"><span>최고 기록</span><b>'+comboMax+'</b></div>':'')
+    dsc('미션',misTxt)
+    +dsc('세트',nSet+'세트')
+    +dsc('문항',tq.toLocaleString()+'문항')
+    +dsc('정답',tok.toLocaleString()+'문항'+pct(tok,tq))
+    +'<div class="dsgrid">'
+    +dsc('오답',(tq-tok).toLocaleString()+'문항'+pct(tq-tok,tq))+dsc('재도전',nRetry+'회')
+    +'</div>'
+    +dsc('학습시간',fmtDur(tt))
+    +(gLines?'<div class="dsgl">'+gLines+'</div>':'')
+    +dsc('플래시',fTot?fOk+' / '+fTot:'—')
+    +(comboMax?dsc('최고 기록',comboMax):'')
     /* 일일 배지 (스펙 7장 — 과거 날짜 포함, gam.daily 저장분) */
-    +(dayFl?'<div style="display:flex;justify-content:space-between"><span>획득 배지</span><b>'+dailyEmojis(dayFl).join(' ')+'</b></div>':'');
+    +(dayFl?dsc('획득 배지',dailyEmojis(dayFl).join(' ')):'');
   $('dailyList').innerHTML=rows||'<div class="emptymsg">이 날의 기록이 없습니다.</div>';
 }
 $('dailyPrev').addEventListener('click',function(){dailyShift(-1);});
@@ -3590,6 +3673,7 @@ function renderWrong(){
       +(e.k>=2?' · <span class="kbad">2번 틀림</span>':'')
       +(e.res?' · <span class="rescue">해결</span>':'')+'</div>'
       +'<div class="wx">'+probWrongHTML(p)+'</div>'
+      +cmpValHTML(p)
       /* 비교 문항은 '내 답' 줄 삭제 (사용자 확정 20260814 — 정답 기호 인라인 표시로 대체) */
       +(e.my!==undefined&&p.t!=='frac'&&p.t!=='mulc'?'<div class="wa"><span class="no1">내 답 '+e.my+'</span></div>':'')
       +'</div>';
@@ -3630,7 +3714,7 @@ $('wrongCsv').addEventListener('click',function(){
 window.NPW={curProb:curProb,startSet:startSet,openSets:openSets,showResult:showResult,openPicker:openPicker,
   openGraph:openGraph,openCal:openCal,openCombo:openCombo,calcGrades:calcGrades,renderWod:renderWod,
   comboGroup:comboGroup,buildComboCuts:buildComboCuts,mulPattern:mulPattern,gradeOf:gradeOf,
-  applyAccuracyGate:applyAccuracyGate,gradeByCuts:gradeByCuts,polyGrade:polyGrade,polyMissionStats:polyMissionStats,
+  applyAccuracyGate:applyAccuracyGate,gradeByCuts:gradeByCuts,isCmpSet:isCmpSet,cmpValHTML:cmpValHTML,renderDaily:renderDaily,polyGrade:polyGrade,polyMissionStats:polyMissionStats,
   flashTiming:flashTiming,setFlashLv:setFlashLv,timeNow:timeNow,doneRec:doneRec,logV4:logV4,subOf:subOf,
   dayRings:dayRings,openDaily:openDaily,setStatView:setStatView,openCalAll:openCalAll,
   dayGamScan:dayGamScan,comboLineTxt:comboLineTxt,showDayend:showDayend,coachPick:coachPick,
