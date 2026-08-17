@@ -121,6 +121,13 @@
   .gbwrap.open .gbtog svg{transform:rotate(180deg)}
   .gbbody{display:none}
   .gbwrap.open .gbbody{display:block}
+  /* 하단 CTA 여백 (사용자 지시 20260817 — 실기기에서 버튼이 홈 인디케이터에 깔려 눌려 보였다).
+     .screen 기본 padding-bottom 20px 만으로는 인디케이터(약 34px)를 못 피한다.
+     홈에만 적용 — 다른 화면은 이미 각자 env(safe-area-inset-bottom) 처리가 있다. */
+  #home{padding-bottom:calc(20px + env(safe-area-inset-bottom))}
+  #home .cta{flex-shrink:0}          /* 공간이 모자라도 버튼이 눌리지 않게 */
+  /* 펼친 상태에서는 스페이서(.cheer)를 접어 여백 확보 → 스크롤 미발생 */
+  #gbWrap.open ~ .cheer{min-height:0}
   .gbhead{display:flex;align-items:center;justify-content:space-between;background:var(--card);
     border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:12px;
     box-shadow:0 6px 18px rgba(0,0,0,.04)}
@@ -945,7 +952,7 @@ var APP={
   nameEN:'Shooong',         /* 파일명·전송 페이로드용 (영문 고정) */
   slug:'shooong',           /* 저장키·파일명 접두어 (영문 소문자) */
   theme:'choco',            /* 기본 테마: choco|yellow|navy|mint|green */
-  ver:'V02.14',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
+  ver:'V02.15',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
                                ⚠ 소수점 뒤 = sw.js CACHE 'shooong-vNNN' 의 릴리스 번호 (사용자 확정 20260817).
                                  배포 반영 여부를 화면에서 눈으로 확인하려고 붙였다.
                                  릴리스마다 sw.js CACHE 와 이 값을 반드시 같이 올려라 — pwtest_c 가 불일치를 잡는다 */
