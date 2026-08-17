@@ -952,7 +952,7 @@ var APP={
   nameEN:'Shooong',         /* 파일명·전송 페이로드용 (영문 고정) */
   slug:'shooong',           /* 저장키·파일명 접두어 (영문 소문자) */
   theme:'choco',            /* 기본 테마: choco|yellow|navy|mint|green */
-  ver:'V02.15',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
+  ver:'V02.16',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
                                ⚠ 소수점 뒤 = sw.js CACHE 'shooong-vNNN' 의 릴리스 번호 (사용자 확정 20260817).
                                  배포 반영 여부를 화면에서 눈으로 확인하려고 붙였다.
                                  릴리스마다 sw.js CACHE 와 이 값을 반드시 같이 올려라 — pwtest_c 가 불일치를 잡는다 */
@@ -1099,19 +1099,36 @@ function gradeOf(t,cuts){
   if(t<=cuts[3])return 'C';
   return 'D';
 }
-/* 비교(분수·곱셈) 세트 오답 허용 상한 — 초과 시 RETRY. 사용자 확정 20260815 */
-var CMP_WRONG_MAX=10;
-/* 세트가 비교 종목인지 (frac·mulc 전용 완화 규칙 적용 대상) */
+/* 비교(분수·곱셈) 가중 등급 — 사용자 확정 20260817 (기준표 v2).
+   총점 = 속도 20% + 정확도 80% · RETRY 없음 (구 CMP_WRONG_MAX=10 게이트 폐기 20260817).
+   속도 점수 = 시간등급(현행 CUTS 무변경)을 점수화: S100 A85 B70 C55 D40
+   정확도 점수 = 100 - 오답×5 (20문항 고정) · 총점컷 [S,A,B,C] 이상 = 95/84/74/62 */
+var CMP_W_SPEED=0.2,CMP_W_ACC=0.8;
+var CMP_SPEED_PTS={S:100,A:85,B:70,C:55,D:40};
+var CMP_SCORE_CUTS=[95,84,74,62];
+var CMP_PROB_N=20; /* 비교 세트는 전부 20문항 (NDB 실측 105세트) */
+function cmpScore(timeGrade,wrongCount){
+  var acc=100-100/CMP_PROB_N*Math.min(wrongCount,CMP_PROB_N);
+  return CMP_W_SPEED*CMP_SPEED_PTS[timeGrade]+CMP_W_ACC*acc;
+}
+function cmpScoreGrade(sc){
+  if(sc>=CMP_SCORE_CUTS[0])return 'S';
+  if(sc>=CMP_SCORE_CUTS[1])return 'A';
+  if(sc>=CMP_SCORE_CUTS[2])return 'B';
+  if(sc>=CMP_SCORE_CUTS[3])return 'C';
+  return 'D';
+}
+/* 세트가 비교 종목인지 (frac·mulc 전용 가중 등급 적용 대상) */
 function isCmpSet(st){
   if(!st||!st.ps||!st.ps.length)return false;
   for(var i=0;i<st.ps.length;i++){if(st.ps[i].t!=='frac'&&st.ps[i].t!=='mulc')return false;}
   return true;
 }
 /* 정확도 게이트 (설계서 03 — 다항 미적용, 이중 적용 금지)
-   isCmp=true (비교 세트): 오답 CMP_WRONG_MAX 까지 통과·시간 등급 그대로, 캡 없음 (사용자 확정 20260815) */
+   isCmp=true (비교 세트): 가중 등급으로 대체 — 항상 등급 산출, RETRY·캡 없음 (사용자 확정 20260817) */
 function applyAccuracyGate(grade,wrongCount,completed,isCmp){
   if(!completed)return {grade:null,reason:'INCOMPLETE'};
-  if(isCmp)return wrongCount>CMP_WRONG_MAX?{grade:null,reason:'RETRY'}:{grade:grade,reason:null};
+  if(isCmp)return {grade:cmpScoreGrade(cmpScore(grade,wrongCount)),reason:null};
   if(wrongCount>=2)return {grade:null,reason:'RETRY'};
   if(wrongCount===1&&(grade==='S'||grade==='A'))return {grade:'B',reason:'CAPPED'};
   return {grade:grade,reason:null};
@@ -1298,11 +1315,17 @@ function selfTest(){
   if(!(g4.grade===null&&g4.reason==='UNDEFINED_BLOCK'))errs.push('gate UNDEFINED_BLOCK');
   var g5=gradeByCuts(CUTS.add2,45,1,true); /* 오답1 + 시간 B → B 유지 (캡 미작동 구간) */
   if(!(g5.grade==='B'&&g5.reason===null))errs.push('gate B유지');
-  /* 검증 8장: 비교 세트 완화 (오답 10까지 통과·캡 없음, 11부터 RETRY) */
-  var c1=gradeByCuts(CUTS.fracCmp,100,10,true,true);
-  if(!(c1.grade==='S'&&c1.reason===null))errs.push('cmp 오답10 S유지');
-  var c2=gradeByCuts(CUTS.fracCmp,100,11,true,true);
-  if(!(c2.grade===null&&c2.reason==='RETRY'))errs.push('cmp 오답11 RETRY');
+  /* 검증 8장: 비교 세트 가중 등급 (속도20/정확도80 · 컷 95/84/74/62 · RETRY 없음 — 20260817) */
+  var c1=gradeByCuts(CUTS.fracCmp,100,0,true,true);   /* 시간S·오답0 → 100점 S */
+  if(!(c1.grade==='S'&&c1.reason===null))errs.push('cmp 시간S오답0 S');
+  var c1b=gradeByCuts(CUTS.fracCmp,100,2,true,true);  /* 시간S·오답2 → 92점 A (S컷 95 미달) */
+  if(!(c1b.grade==='A'&&c1b.reason===null))errs.push('cmp 시간S오답2 A');
+  var c1c=gradeByCuts(CUTS.fracCmp,220,0,true,true);  /* 시간B·오답0 → 94점 A (전답도 시간B면 S 불가) */
+  if(!(c1c.grade==='A'&&c1c.reason===null))errs.push('cmp 시간B오답0 A');
+  var c2=gradeByCuts(CUTS.fracCmp,100,11,true,true);  /* 오답11 → 56점 D · RETRY 아님 */
+  if(!(c2.grade==='D'&&c2.reason===null))errs.push('cmp 오답11 D');
+  var c2b=gradeByCuts(CUTS.fracCmp,350,0,true,true);  /* 시간D·오답0 → 88점 A */
+  if(!(c2b.grade==='A'&&c2b.reason===null))errs.push('cmp 시간D오답0 A');
   var c3g=gradeByCuts(CUTS.mulCmpA,100,10,true,false);
   if(!(c3g.grade===null&&c3g.reason==='RETRY'))errs.push('cmp 플래그없으면 기존규칙');
   if(!isCmpSet({ps:[{t:'frac'},{t:'frac'}]}))errs.push('isCmpSet frac');
@@ -2961,7 +2984,7 @@ function showResult(g,t,info){
     note='<br>다항 등급은 미션 완주 시 5세트 합산으로 판정합니다.';
   }else if(info&&info.reason==='RETRY'){
     big='<div class="rg">재도전</div>';
-    note='<br>오답 '+(isCmpSet(curSet())?CMP_WRONG_MAX+1:2)+'문제 이상은 등급 없이 미완료로 남습니다.'; /* 1줄 유지 — 캐릭터 이미지와 겹침 방지 */
+    note='<br>오답 2문제 이상은 등급 없이 미완료로 남습니다.'; /* 1줄 유지 — 캐릭터 이미지와 겹침 방지. 비교 세트는 RETRY 없음(20260817)이라 이 분기 미도달 */
   }else{
     big='<div class="rg'+(g?' g-'+g:'')+'">'+(g||'—')+'</div>';
     if(info&&info.reason==='CAPPED')note='<br>오답 1문제는 등급이 B까지만 인정됩니다.';
@@ -2981,7 +3004,9 @@ function showResult(g,t,info){
      S는 위 컷이 없어 항상 "빨랐어요", D는 달성 컷이 없어 항상 "C컷까지" (가정 — 이의 시 조정) */
   var spd='';
   if(!isPoly&&cuts&&g&&!(info&&info.reason)){ /* 정상 등급 세트만 (다항·재도전·CAPPED 제외) */
-    var CUTL=['S','A','B','C'],gi={S:0,A:1,B:2,C:3,D:4}[g];
+    /* 비교 세트: 최종 등급은 가중(속도20/정확도80)이라 시간컷과 어긋난다 → 속도 줄만 시간등급 기준 (20260817) */
+    var gSpd=isCmpSet(curSet())?gradeOf(t,cuts):g;
+    var CUTL=['S','A','B','C'],gi={S:0,A:1,B:2,C:3,D:4}[gSpd];
     if(gi!==undefined){
       var sTxt=null,sCol=null;
       var fmtD=function(x){x=Math.round(Math.abs(x)*10)/10;return (x%1===0)?x.toFixed(0):x.toFixed(1);};
@@ -3782,7 +3807,7 @@ $('wrongCsv').addEventListener('click',function(){
 window.NPW={curProb:curProb,startSet:startSet,openSets:openSets,showResult:showResult,openPicker:openPicker,
   openGraph:openGraph,openCal:openCal,openCombo:openCombo,calcGrades:calcGrades,renderWod:renderWod,
   comboGroup:comboGroup,buildComboCuts:buildComboCuts,mulPattern:mulPattern,gradeOf:gradeOf,
-  applyAccuracyGate:applyAccuracyGate,gradeByCuts:gradeByCuts,isCmpSet:isCmpSet,cmpValHTML:cmpValHTML,renderDaily:renderDaily,polyGrade:polyGrade,polyMissionStats:polyMissionStats,
+  applyAccuracyGate:applyAccuracyGate,gradeByCuts:gradeByCuts,isCmpSet:isCmpSet,cmpScore:cmpScore,cmpScoreGrade:cmpScoreGrade,cmpValHTML:cmpValHTML,renderDaily:renderDaily,polyGrade:polyGrade,polyMissionStats:polyMissionStats,
   flashTiming:flashTiming,setFlashLv:setFlashLv,timeNow:timeNow,doneRec:doneRec,logV4:logV4,subOf:subOf,
   dayRings:dayRings,openDaily:openDaily,setStatView:setStatView,openCalAll:openCalAll,
   dayGamScan:dayGamScan,comboLineTxt:comboLineTxt,showDayend:showDayend,coachPick:coachPick,
