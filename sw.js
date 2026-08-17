@@ -2,7 +2,7 @@
    ★ CACHE 값은 app_template.html 의 APP.slug 와 반드시 맞출 것 (앱마다 달라야 함).
      예) shooong-v001 / vitamin-v001 / flash-v001 / frac-v001
    ★ 릴리스마다 뒤 번호를 올릴 것 (v001 → v002 …). 안 올리면 구버전이 캐시로 남는다. */
-var CACHE = 'shooong-v013';
+var CACHE = 'shooong-v014';
 var ASSETS = ['./', './index.html', './icon.png', './praxis_ending.mp4']; /* 엔딩 비디오 (20260811) */
 
 self.addEventListener('install', function (e) {

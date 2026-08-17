@@ -112,6 +112,15 @@
   .sumrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
   .sumrow .streak{margin-top:0}
   .gbwrap{margin:24px 0 0}
+  /* 티어·배지 접기 (사용자 확정 20260817) — 기본 접힘, 셰브론만 노출 */
+  .gbtog{display:flex;align-items:center;justify-content:center;width:100%;
+    background:none;border:0;padding:14px 0 10px;margin:0;color:var(--ink);opacity:.62;
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent;cursor:pointer}
+  .gbtog:active{opacity:.85}
+  .gbtog svg{transition:transform .2s ease}
+  .gbwrap.open .gbtog svg{transform:rotate(180deg)}
+  .gbbody{display:none}
+  .gbwrap.open .gbbody{display:block}
   .gbhead{display:flex;align-items:center;justify-content:space-between;background:var(--card);
     border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:12px;
     box-shadow:0 6px 18px rgba(0,0,0,.04)}
@@ -599,13 +608,19 @@
       <div class="m act" id="menu-wrong"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 8v4M12 16h.01"/></svg></div><div class="lbl">오답</div></div>
       <div class="m act" id="menu-set"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div><div class="lbl">설정</div></div>
     </nav>
-    <div class="gbwrap"><!-- 2026-08-11 홈 부가 디자인(사용자 확정 m12): 티어 줄(흰 카드) + 영구 배지 18종 그리드(배경 노출, 미획득 그레이).
-         표시 전용 — 판정은 permCheck/rankLevel 소관. #homeRank 텍스트 형식은 pwtest_rank 가 검증 (라벨 "티어 :"는 밖) -->
-      <div class="gbhead">
-        <span class="gblabel">티어 : <span class="gbrank" id="homeRank">🌱 산린이</span></span>
-        <span class="gbcount" id="homeBadgeN">배지 0/18</span>
+    <div class="gbwrap" id="gbWrap"><!-- 2026-08-11 홈 부가 디자인(사용자 확정 m12): 티어 줄(흰 카드) + 영구 배지 18종 그리드(배경 노출, 미획득 그레이).
+         표시 전용 — 판정은 permCheck/rankLevel 소관. #homeRank 텍스트 형식은 pwtest_rank 가 검증 (라벨 "티어 :"는 밖)
+         2026-08-17 접기 시공(사용자 확정): 기본 접힘, 셰브론 탭으로 펼침. 상태 저장 안 함 — 앱 재실행 시 항상 접힘 -->
+      <button class="gbtog" id="gbToggle" aria-label="티어·배지 펼치기" aria-expanded="false">
+        <svg width="52" height="30" viewBox="0 0 52 30" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8 L26 23 L46 8"/></svg>
+      </button>
+      <div class="gbbody" id="gbBody">
+        <div class="gbhead">
+          <span class="gblabel">티어 : <span class="gbrank" id="homeRank">🌱 산린이</span></span>
+          <span class="gbcount" id="homeBadgeN">배지 0/18</span>
+        </div>
+        <div class="gbgrid" id="homeBadges"></div>
       </div>
-      <div class="gbgrid" id="homeBadges"></div>
     </div>
     <div class="cheer" id="cheer"></div><!-- '오늘도 파이팅!' 삭제 (사용자 확정). 전체 완료 문구만 JS로 표시. flex:1 스페이서 역할은 유지 -->
     <button class="cta" id="ctaBtn">작업기억력도 점수도 슈우웅</button>
@@ -930,7 +945,7 @@ var APP={
   nameEN:'Shooong',         /* 파일명·전송 페이로드용 (영문 고정) */
   slug:'shooong',           /* 저장키·파일명 접두어 (영문 소문자) */
   theme:'choco',            /* 기본 테마: choco|yellow|navy|mint|green */
-  ver:'V02.13',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
+  ver:'V02.14',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
                                ⚠ 소수점 뒤 = sw.js CACHE 'shooong-vNNN' 의 릴리스 번호 (사용자 확정 20260817).
                                  배포 반영 여부를 화면에서 눈으로 확인하려고 붙였다.
                                  릴리스마다 sw.js CACHE 와 이 값을 반드시 같이 올려라 — pwtest_c 가 불일치를 잡는다 */
@@ -1811,6 +1826,13 @@ function premGate(fn){
 }
 
 $('ctaBtn').addEventListener('click',function(){openPicker();});
+/* 티어·배지 접기 토글 (사용자 확정 20260817 — 런타임 상태, 저장 안 함 → 앱 재실행 시 항상 접힘) */
+$('gbToggle').addEventListener('click',function(){
+  var w=$('gbWrap'),on=w.classList.toggle('open');
+  this.setAttribute('aria-expanded',on?'true':'false');
+  this.setAttribute('aria-label',on?'티어·배지 접기':'티어·배지 펼치기');
+  buzz(6);
+});
 $('menu-wrong').addEventListener('click',function(){premGate(function(){renderWrong();show('wrong');});});
 $('menu-graph').addEventListener('click',function(){premGate(openGraph);});
 $('menu-cal').addEventListener('click',function(){premGate(openCal);});
