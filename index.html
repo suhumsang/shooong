@@ -208,6 +208,7 @@
   #action .stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 26px;
     transform:translateY(-30px)}
   .sum{display:inline-block;text-align:right;position:relative;padding-left:clamp(34px,9vw,46px)}
+  .sum .ready{font-size:clamp(40px,12vw,56px);font-weight:900;color:var(--ink);text-align:center;padding:30px 0} /* 시작 대기 (20260818) */
   .sum .ln{font-size:clamp(40px,11vw,52px);font-weight:300;color:var(--key-ink);letter-spacing:.04em;line-height:1.15;
     font-variant-numeric:tabular-nums;
     display:flex;align-items:center;justify-content:flex-end;position:relative}
@@ -952,7 +953,7 @@ var APP={
   nameEN:'Shooong',         /* 파일명·전송 페이로드용 (영문 고정) */
   slug:'shooong',           /* 저장키·파일명 접두어 (영문 소문자) */
   theme:'choco',            /* 기본 테마: choco|yellow|navy|mint|green */
-  ver:'V02.18',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
+  ver:'V02.19',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
                                ⚠ 소수점 뒤 = sw.js CACHE 'shooong-vNNN' 의 릴리스 번호 (사용자 확정 20260817).
                                  배포 반영 여부를 화면에서 눈으로 확인하려고 붙였다.
                                  릴리스마다 sw.js CACHE 와 이 값을 반드시 같이 올려라 — pwtest_c 가 불일치를 잡는다 */
@@ -2208,9 +2209,13 @@ document.addEventListener('visibilitychange',function(){
 });
 
 /* ============ 플레이 시작 · 진행 (이어풀기 폐지 — 항상 처음부터) ============ */
+/* 미션 시작 대기: coach_start01(1.88초) 끝난 뒤 문제·타이머 시작 (사용자 확정 20260818).
+   0.4초 발동 딜레이 + 1.88초 음성 = 2.28초 → 2300ms. 미션 첫 세트 + start01 발동 시에만 */
+var COACH_START_HOLD_MS=2300;
 function startSet(wno,sno){
-  var w=wodByNo(wno),st=w&&setByNo(w,sno),gGreeted=false;
+  var w=wodByNo(wno),st=w&&setByNo(w,sno),gGreeted=false,startVoiced=false;
   if(!st)return;
+  if(S.startHoldT){clearTimeout(S.startHoldT);S.startHoldT=0;} /* 대기 중 재시작 방지 */
   /* G 스트릭 인사 (스펙 3장·6장, 사용자 확정 20260813 — 음성만·자막 없음):
      어제 미션 완주(streak.last=어제) + 오늘 첫 세트 시작, 1일 1회 = gam.daily 비트 256 (endVid 128 선례).
      응원 OFF여도 비트는 소모 (결정적 1일 1회). streak01/02 로테이션.
@@ -2233,17 +2238,38 @@ function startSet(wno,sno){
       if(revG){
         dG.gam.daily[kG]=bG|512;DBS.save();
         playCoach('coach_start01',400);
-        gGreeted=true;
+        gGreeted=true;startVoiced=true;
       }
     }
   }catch(e){}
   /* 미션 시작음 — 인사가 안 나간 경우에만 */
-  if(!gGreeted&&w.sets.length&&w.sets[0].no===sno)playCoach('coach_start01',400);
+  if(!gGreeted&&w.sets.length&&w.sets[0].no===sno){playCoach('coach_start01',400);startVoiced=true;}
   S.mode='play';S.wod=wno;S.set=sno;S.input='';S.lock=false;S.flashRun=0;
   S.probMs=[];S.okFlags=[];
   S.pi=0;S.elapsed=0;S.setWrong=0;
+  /* start01 이 나간 미션 첫 세트: 음성 끝까지 '준비!' 표시, 타이머(벽시계·문항시계) 미시작 —
+     타이머 없이 문제만 먼저 보이면 첫 문항을 공짜로 읽게 되므로 문제도 대기 후 표시 */
+  if(startVoiced&&cheerSndOn()&&w.sets.length&&w.sets[0].no===sno){ /* 응원 OFF면 음성이 없으니 대기도 없음 */
+    S.lock=true;
+    timeStop();clearInterval(timerIv); /* 직전 세트 시계 정지 — 대기 중 벽시계·타이머UI 잔존 방지 */
+    renderReady();
+    S.startHoldT=setTimeout(function(){
+      S.startHoldT=0;S.lock=false;
+      timeStart();startTimerUI();showProblem();
+    },COACH_START_HOLD_MS);
+    return;
+  }
   timeStart();startTimerUI();
   showProblem();
+}
+/* 시작 대기 화면 — 액션 화면 자리에 '준비!' (미션 첫 세트 = 항상 액션(덧셈) 세트) */
+function renderReady(){
+  $('actProg').textContent=progText();
+  $('actTime').textContent='';
+  var sum=$('actSum');
+  sum.className='sum';
+  sum.innerHTML='<div class="ready">준비!</div>';
+  show('action');
 }
 function clearFlashTimers(){
   for(var i=0;i<S.flashTimers.length;i++)clearTimeout(S.flashTimers[i]);
@@ -2797,6 +2823,7 @@ $('exitGo').addEventListener('click',function(){
 });
 function exitPlay(){
   clearFlashTimers();
+  if(S.startHoldT){clearTimeout(S.startHoldT);S.startHoldT=0;} /* 시작 대기 중 이탈 */
   if(S.mode==='retry'){exitToWrong();return;}
   timeStop();clearInterval(timerIv);
   /* 중도 이탈 = 세트 폐기 (확정 3). done 미기록. 1문항 이상 진행 시 comp:0 이력만.
