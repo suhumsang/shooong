@@ -325,9 +325,9 @@
   #dayend .bnew{margin-top:28px}
   /* 이탈 확인 다이얼로그 (스펙 2장 — 오버레이, 신설 화면 아님) */
   /* 엔딩 비디오 오버레이 (사용자 확정 20260811) */
-  #endVid{position:fixed;inset:0;z-index:90;background:#000;display:flex;align-items:center;justify-content:center;cursor:pointer}
-  #endVid.hidden{display:none}
-  #endVid video{width:100%;height:100%;object-fit:contain;pointer-events:none}
+  #endVid,#introVid{position:fixed;inset:0;z-index:90;background:#000;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  #endVid.hidden,#introVid.hidden{display:none}
+  #endVid video,#introVid video{width:100%;height:100%;object-fit:contain;pointer-events:none}
   #exitDlg{display:none;position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.45);
     align-items:center;justify-content:center;padding:24px}
   #exitDlg.open{display:flex}
@@ -617,16 +617,16 @@
       <div class="m act" id="menu-wrong"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 8v4M12 16h.01"/></svg></div><div class="lbl">오답</div></div>
       <div class="m act" id="menu-set"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div><div class="lbl">설정</div></div>
     </nav>
-    <div class="gbwrap" id="gbWrap"><!-- 2026-08-11 홈 부가 디자인(사용자 확정 m12): 티어 줄(흰 카드) + 영구 배지 18종 그리드(배경 노출, 미획득 그레이).
+    <div class="gbwrap" id="gbWrap"><!-- 2026-08-11 홈 부가 디자인(사용자 확정 m12): 티어 줄(흰 카드) + 영구 배지 20종 그리드(배경 노출, 미획득 그레이).
          표시 전용 — 판정은 permCheck/rankLevel 소관. #homeRank 텍스트 형식은 pwtest_rank 가 검증 (라벨 "티어 :"는 밖)
          2026-08-17 접기 시공(사용자 확정): 기본 접힘, 셰브론 탭으로 펼침. 상태 저장 안 함 — 앱 재실행 시 항상 접힘 -->
       <button class="gbtog" id="gbToggle" aria-label="티어·배지 펼치기" aria-expanded="false">
-        <svg width="52" height="30" viewBox="0 0 52 30" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8 L26 23 L46 8"/></svg>
+        <svg width="26" height="15" viewBox="0 0 26 15" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4 L13 11.5 L23 4"/></svg><!-- 20260818 사용자 지시: 크기 1/2(52×30→26×15)·스트로크 1pt -->
       </button>
       <div class="gbbody" id="gbBody">
         <div class="gbhead">
           <span class="gblabel">티어 : <span class="gbrank" id="homeRank">🌱 산린이</span></span>
-          <span class="gbcount" id="homeBadgeN">배지 0/18</span>
+          <span class="gbcount" id="homeBadgeN">배지 0/20</span>
         </div>
         <div class="gbgrid" id="homeBadges"></div>
       </div>
@@ -752,6 +752,7 @@
 
   <!-- 엔딩 비디오 오버레이 (사용자 확정 20260811 — 1일 첫 완주, 홈 탭 직후 1회. 탭 스킵) -->
   <div id="endVid" class="hidden"><video id="endVidV" src="./praxis_ending.mp4" preload="none" playsinline></video></div>
+  <div id="introVid" class="hidden"><video id="introVidV" src="./praxis_intro.mp4" preload="none" playsinline></video></div><!-- 인트로 (사용자 확정 20260818: 하루 1회·탭 스킵·소리 endVid 동일) -->
 
   <!-- 학습결과 (그래프) -->
   <section id="graph" class="screen hidden">
@@ -778,6 +779,7 @@
       <div class="heat" id="calHeat"></div>
     </div>
     <div class="totcard" style="margin-top:10px;flex-direction:column;align-items:stretch;gap:8px" id="calSummary"></div>
+    <div class="notice">※ 중도 이탈한 문제들은 집계에서 제외하였습니다.</div><!-- 20260818 사용자 지시 -->
     <div id="calAll">
       <div class="ahdr"><h1>전체 기록</h1><div class="aclose" id="calAllClose">✕</div></div>
       <div id="calAllBody"></div>
@@ -821,7 +823,7 @@
     <div class="gr2card" id="gr2C3"></div>
     </div>
     </div>
-    <div id="badgeWrap" style="display:none;flex-direction:column;flex:1;min-height:0"><!-- 영구 배지 18종 (스펙 8장 — 화면 신설 금지, #combo 내부 탭) -->
+    <div id="badgeWrap" style="display:none;flex-direction:column;flex:1;min-height:0"><!-- 영구 배지 20종 (스펙 8장 — 화면 신설 금지, #combo 내부 탭) -->
     <div class="plainlist" id="badgeList"></div>
     </div>
   </section>
@@ -954,7 +956,7 @@ var APP={
   nameEN:'Shooong',         /* 파일명·전송 페이로드용 (영문 고정) */
   slug:'shooong',           /* 저장키·파일명 접두어 (영문 소문자) */
   theme:'choco',            /* 기본 테마: choco|yellow|navy|mint|green */
-  ver:'V02.20',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
+  ver:'V02.21',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
                                ⚠ 소수점 뒤 = sw.js CACHE 'shooong-vNNN' 의 릴리스 번호 (사용자 확정 20260817).
                                  배포 반영 여부를 화면에서 눈으로 확인하려고 붙였다.
                                  릴리스마다 sw.js CACHE 와 이 값을 반드시 같이 올려라 — pwtest_c 가 불일치를 잡는다 */
@@ -1377,7 +1379,8 @@ var DBS=(function(){
     brk:0,                                    /* 병목 격파 연속 카운터 */
     badges:{},                                /* 영구 배지 {id: 획득 ISO} */
     daily:{},                                 /* 일일 배지 {YYMMDD: 플래그} */
-    mbest:{}                                  /* {미션번호: 역대 최고 회차등급} */
+    mbest:{},                                 /* {미션번호: 역대 최고 회차등급} */
+    rk:{lv:0,ups:[]}                          /* 티어 승급 추적 (s07·s09 — 20260818). lv=0 은 미초기화 표식, ups=승급 ISO 목록 */
   };}
   function blank(){return {ver:4,done:{},cur:null,wrongLog:[],log:[],probLog:[],snaps:[],
     flashLv:1,      /* 플래시 레벨 1~161 */
@@ -1424,6 +1427,7 @@ var DBS=(function(){
     if(!_g.badges)_g.badges={};
     if(!_g.daily)_g.daily={};
     if(!_g.mbest)_g.mbest={};
+    if(!_g.rk)_g.rk={lv:0,ups:[]}; /* 구 백업 복원 대비 (20260818) */
     if((!wasV4||!hadGam)&&raw){ /* 마이그레이션 즉시 영속화 (백업이 구버전을 내보내는 사고 방지) */
       try{localStorage.setItem(LSKEY,JSON.stringify(data));}catch(e){}
     }
@@ -1653,7 +1657,7 @@ function renderHome(){
   var yd=new Date(now);yd.setDate(yd.getDate()-1);
   var alive=(stk.last===todayIso||stk.last===locDate(yd));
   $('streak').textContent=alive?stk.cur:0;
-  /* 영구 배지 18종 그리드 (2026-08-11 홈 부가 디자인, 표시 전용 — 판정·저장은 permCheck 소관).
+  /* 영구 배지 20종 그리드 (2026-08-11 홈 부가 디자인, 표시 전용 — 판정·저장은 permCheck 소관).
      BEMO 맵은 톱레벨로 이동 (결과 화면 배지 연출과 공용 — 값 무변경) */
   var got=(d.gam&&d.gam.badges)||{},bh='',bn=0;
   for(var bi=0;bi<PERM_BADGES.length;bi++){
@@ -1662,7 +1666,7 @@ function renderHome(){
     bh+='<span class="'+(bOn?'earn':'')+'">'+BEMO[pb.id]+'</span>';
   }
   $('homeBadges').innerHTML=bh;
-  $('homeBadgeN').textContent='배지 '+bn+'/18';
+  $('homeBadgeN').textContent='배지 '+bn+'/'+PERM_BADGES.length;
   $('cheer').textContent=(t===null)?'다 풀었어요! 대단해요!':''; /* 평상시 문구 삭제 (사용자 확정) */
 }
 /* 홈 주간 달력 날짜 탭 → 통계>일일기록 점프 (사용자 지시 20260814 — 월간학습 달력 선례) */
@@ -2313,7 +2317,6 @@ function advance(correct){
         var x=d.wrongLog[i];
         if(x.w===e.w&&x.s===e.s&&x.i===e.i&&!x.res)x.res=new Date().toISOString();
       }
-      dailyUpdate(d,locDate(new Date())); /* 🧠 약점 배지 — 해결 즉시 판정 (스펙 7장) */
       DBS.save();
     }
     S.rqi++;
@@ -2370,58 +2373,14 @@ function comboLineTxt(c,s){
   if(s>=2)p.push('스트레이트 '+s);
   return p.join(' · ');
 }
-/* ============ 일일 배지 7종 (스펙 7장) — gam.daily {YYMMDD: 비트플래그} ============ */
-var DAILY_BADGES=[
-  {bit:1,  e:'🔥', name:'콤보'},        /* 콤보 5 도달 */
-  {bit:2,  e:'⚡', name:'스트레이트'},   /* 스트레이트 3 도달 */
-  {bit:4,  e:'🎯', name:'정확성'},      /* 당일 정답률 95% 이상 (완료 세트 문항 합산) */
-  {bit:8,  e:'⏱️', name:'스피드'},      /* 동일 세트 재도전 tin 단축 1회 이상 */
-  {bit:16, e:'🏆', name:'꾸준함'},      /* 미션 완주 (스트릭 인정일과 동일) */
-  {bit:32, e:'🧠', name:'약점'},        /* 오답 다시 풀기 해결 (wrongLog res 당일) */
-  {bit:64, e:'📈', name:'슈우웅'}       /* 등급 계산 ▲ 발생 (이벤트 기반) */
-];
+/* 일일 배지 7종 — 전체 삭제 (사용자 지시 20260818. 설명 부재로 혼란 → 표시·판정 폐기).
+   gam.daily 저장소는 비트 128(endVid)·256(스트릭)·512(웰컴)·1024(인트로) 전용으로 존속.
+   구 데이터의 비트 1~64 는 무시된다 (읽는 코드 없음 — 지우지 않음) */
 function ymd6(iso){return iso.slice(2,4)+iso.slice(5,7)+iso.slice(8,10);}
-function dailyGet(d,iso){return d.gam.daily[ymd6(iso)]||0;}
-function dailyEmojis(fl){
-  var out=[];
-  for(var i=0;i<DAILY_BADGES.length;i++)if(fl&DAILY_BADGES[i].bit)out.push(DAILY_BADGES[i].e);
-  return out;
-}
-/* 파생 판정 재계산·저장 (📈 은 calcGrades 이벤트에서만 세팅되어 보존).
-   🎯 만 하락 시 해제 (당일 정답률은 변동값), 나머지는 "도달" — 단조 유지 */
-function dailyUpdate(d,iso){
-  var k=ymd6(iso),fl=d.gam.daily[k]||0;
-  var gs=dayGamScan(d,iso);
-  if(gs.mc>=5)fl|=1;
-  if(gs.ms>=3)fl|=2;
-  var tot=0,wr=0,n=0,i,e;
-  var minT={},spd=false; /* ⏱: 동일 (w,s) 과거 최소 tin 대비 단축 — 정상 완료(reason:null)만 */
-  for(i=0;i<d.log.length;i++){
-    e=d.log[i];
-    if(e.comp!==1||e.tin===undefined||!e.at)continue;
-    var isToday=locDate(e.at)===iso;
-    if(isToday){ /* 🎯 표본: 당일 완료 세트 (홈 요약과 동일 방식, RETRY 포함) */
-      n++;wr+=e.wr||0;
-      var ww=wodByNo(e.w),st2=ww&&setByNo(ww,e.s);
-      if(st2)tot+=st2.ps.length;
-    }
-    if(!e.reason){
-      var kk=e.w+'-'+e.s;
-      if(isToday&&minT[kk]!==undefined&&e.tin<minT[kk])spd=true;
-      if(minT[kk]===undefined||e.tin<minT[kk])minT[kk]=e.tin;
-    }
-  }
-  if(spd)fl|=8;
-  if(n>0&&tot>0&&(1-wr/tot)>=0.95)fl|=4;else fl&=~4;
-  if(d.gam.streak.last===iso)fl|=16;
-  for(i=0;i<d.wrongLog.length;i++){e=d.wrongLog[i];if(e.res&&locDate(e.res)===iso){fl|=32;break;}}
-  if(fl)d.gam.daily[k]=fl;else delete d.gam.daily[k];
-  return fl;
-}
-/* ============ 영구 배지 18종 (스펙 8장 — 평생 1회, 회수 없음, 획득 사운드 없음) ============ */
-/* 배지 이모지 18종 (사용자 확정 m12 — 이모지 16종 + 🧱🟦 스펙 확정. 임의 변경 금지) */
+/* ============ 영구 배지 20종 (스펙 8장 — 평생 1회, 회수 없음, 획득 사운드 없음) ============ */
+/* 배지 이모지 (기존 18종 사용자 확정 m12 — 임의 변경 금지. s09🦄·s10🤩 신규 — 사용자 확정 20260818) */
 var BEMO={e01:'🐣',e02:'🚀',e03:'🚩',e04:'🏁',e05:'🥉',e06:'🥈',e07:'🥇',e08:'📚',e09:'💎',e10:'🍀',
-  s01:'🎇',s02:'💥',s03:'🌟',s04:'🌠',s05:'👑',s06:'🏆',s07:'🧱',s08:'🟦'};
+  s01:'🎇',s02:'💥',s03:'🌟',s04:'🌠',s05:'👑',s06:'🏆',s07:'🧱',s08:'🟦',s09:'🦄',s10:'🤩'};
 var PERM_BADGES=[
   /* 노력 축 10 */
   {id:'e01',name:'첫 계산',desc:'첫 세트를 완료하면 획득해요',chk:function(d,c){return c.setDone;}},
@@ -2441,10 +2400,35 @@ var PERM_BADGES=[
   {id:'s04',name:'스트레이트 파이브',desc:'스트레이트 5를 달성하면 획득해요',chk:function(d,c){return d.gam.bs.n>=5;}},
   {id:'s05',name:'퍼펙트 데이',desc:'하루에 한 미션 34세트를 전부 A 이상, 게이트 0회로 완주하면 획득해요',chk:function(d,c){return !!(c.pf&&c.pf.a);}},
   {id:'s06',name:'올 에스',desc:'하루에 한 미션 34세트를 전부 S, 게이트 0회로 완주하면 획득해요',chk:function(d,c){return !!(c.pf&&c.pf.s);}},
-  {id:'s07',name:'🧱 병목 격파',desc:'재도전 기록 경신을 7번 연속 달성하면 획득해요',chk:function(d,c){return d.gam.brk>=7;}},
+  /* s07 조건 변경 + s09·s10 신설 (사용자 확정 20260818). 추월=티어(칭호) 승급, 15일=롤링.
+     승급은 이벤트 단위(한 번에 몇 단계를 뛰든 1회) — gam.rk.ups 에 승급 시각 기록 */
+  {id:'s07',name:'🧱 병목 격파',desc:'15일 안에 등급 추월(티어 승급)을 1번 하면 획득해요',chk:function(d,c){return rkUps15(d)>=1;}},
+  {id:'s09',name:'유니콘',desc:'15일 안에 등급 추월(티어 승급)을 2번 하면 획득해요',chk:function(d,c){return rkUps15(d)>=2;}},
+  {id:'s10',name:'슈퍼스타',desc:'미션 1의 모든 세트를 A 이상으로 완료하면 획득해요',chk:function(d,c){return mission1AllA(d);}},
   {id:'s08',name:'🟦 매트릭스',desc:'칭호 매트릭스(S 회독)에 도달하면 획득해요',chk:function(d,c){return c.matrix;}}
 ];
 function permMissionCount(d){var n=0;for(var i=0;i<NDB.length;i++)if(wodComplete(NDB[i]))n++;return n;}
+/* 최근 15일(롤링) 내 티어 승급 횟수 — s07·s09 판정용 (사용자 확정 20260818).
+   permCheck 는 승급 직후에도 돌므로 '판정 시점 기준 최근 15일' = 15일 창 롤링과 동치 */
+function rkUps15(d){
+  var ups=(d.gam.rk&&d.gam.rk.ups)||[],cut=Date.now()-15*86400000,n=0;
+  for(var i=0;i<ups.length;i++)if(new Date(ups[i]).getTime()>=cut)n++;
+  return n;
+}
+/* 미션 1 전세트 A 이상 — s10 판정용 (사용자 확정 20260818: 기간·게이트 무관, 완료 기록 기준).
+   다항 세트는 c 기록: 만점=S, 만점-1=A (perfectDayInfo 와 동일 규칙) */
+function mission1AllA(d){
+  var w=wodByNo(1);if(!w)return false;
+  for(var i=0;i<w.sets.length;i++){
+    var st=w.sets[i],r=doneRec(d,w.no,st.no);
+    if(!r)return false;
+    var g;
+    if(r.c!==undefined){var n=st.ps.length;g=(r.c>=n)?'S':(r.c===n-1)?'A':null;}
+    else g=r.g;
+    if(g!=='S'&&g!=='A')return false;
+  }
+  return true;
+}
 /* 매트릭스 도달 = 15미션 전부 역대 최고 회차등급 S (gam.mbest — 9장에서 갱신) */
 function matrixReached(d){
   if(!NDB.length)return false;
@@ -2505,7 +2489,15 @@ function btProg(d,b,mc){
     case 's02':return g.bc.n/10;
     case 's03':return g.bs.n/3;
     case 's04':return g.bs.n/5;
-    case 's07':return g.brk/7;
+    case 's07':return rkUps15(d)>=1?1:0;
+    case 's09':return rkUps15(d)/2;
+    case 's10':var w1=wodByNo(1),ka=0;if(!w1)return 0;
+      for(var j=0;j<w1.sets.length;j++){var st1=w1.sets[j],r1=doneRec(d,w1.no,st1.no),g1;
+        if(!r1)continue;
+        if(r1.c!==undefined){var nn=st1.ps.length;g1=(r1.c>=nn)?'S':(r1.c===nn-1)?'A':null;}
+        else g1=r1.g;
+        if(g1==='S'||g1==='A')ka++;}
+      return w1.sets.length?ka/w1.sets.length:0;
     case 's08':var k=0,i;for(i=0;i<NDB.length;i++)if(g.mbest[NDB[i].no]==='S')k++;return NDB.length?k/NDB.length:0;
   }
   return 0; /* e01·s05·s06 — 부분 진행 척도 없음 */
@@ -2557,7 +2549,7 @@ function renderBadges(){
     if(p>tb){tb=p;tgt=b;} /* 동률 = 배열 순 (노력 축 우선) */
   }
   h+=tgt?'<div class="bthint" id="btHint">'+btHintHTML(tgt,null)+'</div>'
-    :'<div class="bthint" id="btHint" style="display:none"></div>'; /* 18종 전부 획득 시 숨김 */
+    :'<div class="bthint" id="btHint" style="display:none"></div>'; /* 전부 획득 시 숨김 */
   $('badgeList').innerHTML=h;
 }
 /* ============ 칭호 12단계 (스펙 9장 — 축: 회차 등급, 강등 없음) ============ */
@@ -2762,12 +2754,18 @@ function finishSet(){
       if(stk.cur>stk.best)stk.best=stk.cur;
     }
     /* 칭호 (스펙 9장): 회차 등급 산출 → gam.mbest 역대 최고 갱신 (강등 없음) */
+    var lvBefore=rankLevel(d); /* 티어 승급 추적 — mbest 갱신 전 단계 (s07·s09, 20260818) */
     var rg=roundGrade(d,w);
     if(rg){
       var oldG=d.gam.mbest[w.no];
       if(!oldG||(GSCORE[rg]||0)>(GSCORE[oldG]||0))d.gam.mbest[w.no]=rg;
     }
-    dailyUpdate(d,locDate(at)); /* 일일 배지 (스펙 7장) — 🏆 는 스트릭 갱신 후 판정 */
+    /* 티어 승급 이벤트 기록: 단계가 올랐으면 1회 (몇 단계를 뛰든 1회 — 사용자 고지 20260818).
+       rk.lv=0(미초기화)이면 갱신 전 단계로 시작 — 기존 진행도는 승급으로 안 친다 (소급 없음) */
+    var _rk=d.gam.rk||(d.gam.rk={lv:0,ups:[]});
+    if(!_rk.lv)_rk.lv=lvBefore;
+    var lvAfter=rankLevel(d);
+    if(lvAfter>_rk.lv){_rk.ups.push(at);_rk.lv=lvAfter;}
     /* 영구 배지 (스펙 8장) — 완주 시점: 퍼펙트 데이/올 에스 포함 (매트릭스는 mbest 갱신 후) */
     var nbD=permCheck(d,{setDone:true,mCnt:permMissionCount(d),
       pf:perfectDayInfo(d,w,locDate(at)),matrix:matrixReached(d)},at);
@@ -2781,7 +2779,6 @@ function finishSet(){
       rec:recEv,sm:straightInc?gs.s:0,cm:comboInc?gs.c:0,
       brk:brkEv,nextPoly:!!(nsn&&POLY_SETS[nsn])});
     if(coR&&coR.main.id.indexOf('coach_praise')===0)d.gam.cheers++;
-    dailyUpdate(d,locDate(at)); /* 일일 배지 (스펙 7장) */
     var nbR=permCheck(d,{setDone:true,mCnt:permMissionCount(d),pf:null,matrix:matrixReached(d)},at);
     DBS.save();
     if(info){
@@ -3105,16 +3102,12 @@ function showDayend(w,pstats,coach,newBadges){
   /* 콤보 줄 (스펙 1장): 완주 화면 1줄 — 당일 파생 현재값 */
   var gsD=dayGamScan(d,locDate(new Date()));
   var comboLnD=comboLineTxt(gsD.c,gsD.s);
-  /* 오늘 획득 배지 줄 (스펙 7장·13장: 라벨 + 이모지 나열) */
-  var dfl=dailyGet(d,locDate(new Date()));
-  var dbLine=dfl?'<div class="rd" style="margin-top:6px">오늘 획득 배지&nbsp; <b>'+dailyEmojis(dfl).join(' ')+'</b></div>':'';
   /* 완주 3안 (사용자 확정 20260811): 헤더 축소 · 시간 흰 카드 · 새 배지 = 결과와 동일 병렬 컴포넌트(라벨 없음) */
   $('dayendIn').innerHTML='<div class="rg">미션 '+w.no+'</div>'
     +'<div class="rg2">완료</div>'
     +'<div><div class="rt2 rt2big">'+w.sets.length+'세트 · 총 '+fmtDur(tot)+'</div></div>'
     +polyLine
     +(comboLnD?'<div class="rd" style="margin-top:8px"><b>'+comboLnD+'</b></div>':'')
-    +dbLine
     +(newBadges&&newBadges.length?resBadgeHTML(newBadges):'')
     ; /* 코치 자막 폐기 (사용자 확정 20260816) — 완주 코치는 음성만 */
   show('dayend');
@@ -3125,7 +3118,7 @@ function showDayend(w,pstats,coach,newBadges){
 }
 /* 엔딩 비디오 (사용자 확정 20260811 5건):
    별도 파일+sw 캐시 / 완주 화면 뒤(홈 탭 직후) / 탭 스킵 / 소리 pref.snd 연동(차단 시 음소거 폴백) /
-   1일 1회 = gam.daily 비트 128 (일일 배지 비트 1~64와 무충돌, dailyUpdate 보존 확인) */
+   1일 1회 = gam.daily 비트 128 (구 일일 배지 비트 1~64와 무충돌 — 일일 배지 자체는 20260818 삭제) */
 function endVidSeen(d,k){return !!((d.gam.daily[k]||0)&128);}
 function showEndVid(){
   var w=$('endVid'),v=$('endVidV'),done=false;
@@ -3159,6 +3152,38 @@ $('dayendHome').addEventListener('click',function(){
     renderHome();show('home');
   }
 });
+/* 인트로 비디오 (사용자 확정 20260818): 앱 부팅 시 하루 1회 = gam.daily 비트 1024.
+   탭 스킵·소리 pref.snd 연동·차단 시 음소거 폴백 — endVid 와 동일 기제. 끝나면 홈 그대로 */
+function introVidSeen(d,k){return !!((d.gam.daily[k]||0)&1024);}
+function showIntroVid(){
+  var w=$('introVid'),v=$('introVidV'),done=false;
+  function fin(){
+    if(done)return;done=true;
+    try{v.pause();}catch(e){}
+    w.classList.add('hidden');
+  }
+  v.onended=fin;
+  w.onpointerdown=fin;               /* 탭 스킵 */
+  w.classList.remove('hidden');
+  try{v.muted=!prefGet().snd;}catch(e){v.muted=true;}
+  try{v.currentTime=0;}catch(e){}
+  var p=v.play();
+  if(p&&p.catch)p.catch(function(){
+    if(done)return;
+    if(!v.muted){                    /* 소리 차단 → 음소거 재시도 */
+      v.muted=true;
+      var q=v.play();
+      if(q&&q.catch)q.catch(function(){});  /* 재생 자체 불가 → 탭 스킵으로 탈출 */
+    }
+  });
+}
+function maybeIntroVid(){
+  var d=DBS.get(),k=ymd6(locDate(new Date().toISOString()));
+  if(introVidSeen(d,k))return false;
+  d.gam.daily[k]=(d.gam.daily[k]||0)|1024;DBS.save();
+  showIntroVid();
+  return true;
+}
 /* 콘페티 메커니즘 삭제 (사용자 확정 20260811 — 완주 화면 리디자인 예정) */
 
 /* ============ v0.5 공용: CSV 다운로드 · 포맷 ============ */
@@ -3421,7 +3446,6 @@ function renderDaily(){
   var gsDay=dayGamScan(d,locDate(new Date(DV.y,DV.m,DV.d)));
   var comboMax=comboLineTxt(gsDay.mc,gsDay.ms);
   var dayIso2=locDate(new Date(DV.y,DV.m,DV.d));
-  var dayFl=dailyGet(d,dayIso2);
   /* 미션 완주 수 = 그날 polyLog append 수 (완주 시점 1회만 기록됨) */
   var misNo=[];
   for(var pj=0;pj<d.polyLog.length;pj++){var pl=d.polyLog[pj];if(pl.at&&locDate(pl.at)===dayIso2&&misNo.indexOf(pl.m)<0)misNo.push(pl.m);}
@@ -3447,9 +3471,7 @@ function renderDaily(){
     +dsc('학습시간',fmtDur(tt))
     +(gLines?'<div class="dsgl">'+gLines+'</div>':'')
     +dsc('플래시',fTot?fOk+' / '+fTot:'—')
-    +(comboMax?dsc('최고 기록',comboMax):'')
-    /* 일일 배지 (스펙 7장 — 과거 날짜 포함, gam.daily 저장분) */
-    +(dayFl?dsc('획득 배지',dailyEmojis(dayFl).join(' ')):'');
+    +(comboMax?dsc('최고 기록',comboMax):'');
   $('dailyList').innerHTML=rows||'<div class="emptymsg">이 날의 기록이 없습니다.</div>';
 }
 $('dailyPrev').addEventListener('click',function(){dailyShift(-1);});
@@ -3478,20 +3500,6 @@ function calcGrades(){
     rows.push({c:k,g:(a.n>=10&&COMBO_CUTS[k])?gradeOf(avg,COMBO_CUTS[k]):null,avg:avg,n:a.n,acc:Math.round(a.ok/a.n*100)});
   }
   d.snaps.push({at:new Date().toISOString(),rows:rows});
-  /* 📈 일일 배지 (스펙 7장): 수동 계산 시 직전 스냅 대비 조합 상승 ▲ 1개 이상 */
-  var pv=d.snaps.length>1?d.snaps[d.snaps.length-2]:null;
-  if(pv){
-    var pm2={};
-    for(var q=0;q<pv.rows.length;q++)pm2[pv.rows[q].c]=pv.rows[q].g;
-    for(var q2=0;q2<rows.length;q2++){
-      var rr=rows[q2];
-      if(rr.g&&pm2[rr.c]&&(GSCORE[rr.g]-GSCORE[pm2[rr.c]])>0){
-        var iso9=locDate(new Date());
-        d.gam.daily[ymd6(iso9)]=(d.gam.daily[ymd6(iso9)]||0)|64;
-        break;
-      }
-    }
-  }
   DBS.save();
   renderCombo();
 }
@@ -3852,8 +3860,8 @@ window.NPW={curProb:curProb,startSet:startSet,openSets:openSets,showResult:showR
   dayRings:dayRings,openDaily:openDaily,setStatView:setStatView,openCalAll:openCalAll,
   dayGamScan:dayGamScan,comboLineTxt:comboLineTxt,showDayend:showDayend,coachPick:coachPick,
   coachPraise:coachPraise,coachPrim:coachPrim,coachLine:coachLine,coachRot:coachRot,
-  dailyUpdate:dailyUpdate,dailyEmojis:dailyEmojis,renderBadges:renderBadges,permCheck:permCheck,
-  perfectDayInfo:perfectDayInfo,roundGrade:roundGrade,rankLevel:rankLevel,cheerSndOn:cheerSndOn,
+  renderBadges:renderBadges,permCheck:permCheck,introVidSeen:introVidSeen,maybeIntroVid:maybeIntroVid,
+  perfectDayInfo:perfectDayInfo,roundGrade:roundGrade,rankLevel:rankLevel,rkUps15:rkUps15,mission1AllA:mission1AllA,cheerSndOn:cheerSndOn,
   playCoach:playCoach,coachSrc:coachSrc,coachStop:coachStop,coachLastPlay:function(){return _coachLast;},
   renderGr2:renderGr2,
   /* 프리미엄 잠금 (2026-08-14) */
@@ -3878,6 +3886,7 @@ window.NPW={curProb:curProb,startSet:startSet,openSets:openSets,showResult:showR
   premSync();  /* 원격 키 목록 갱신 — 탈퇴자 차단 (2026-08-14) */
   renderHome();
   show('home');
+  if(!window.__NOINTRO)maybeIntroVid(); /* 인트로 (20260818) — 홈 위 오버레이, 하루 1회. __NOINTRO 는 테스트 전용 차단 (오버레이가 클릭을 가로채므로) */
 })();
 
 }
