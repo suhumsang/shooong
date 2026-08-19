@@ -277,7 +277,10 @@
   #cmp .frac{display:flex;flex-direction:column;align-items:center;line-height:1}
   #cmp .num,#cmp .den{font-size:38px;font-weight:800;padding:0 6px;color:var(--ink);font-variant-numeric:tabular-nums}
   #cmp .bar{height:3px;background:var(--fill);width:84%;margin:8px 0;border-radius:2px}
-  #cmp .mline{font-size:26px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.35;text-align:center}
+  /* 곱셈비교 카드: 수 우측 정렬 + × 기호는 수 열 밖 좌측에 걸침 (사용자 예시 20260818 — 액션 화면과 동일 형식) */
+  #cmp .mline{font-size:26px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.35;display:inline-block;text-align:right}
+  #cmp .mline .mrow{position:relative}
+  #cmp .mline .mop{position:absolute;left:-1.7em}
   #cmp .badge{position:absolute;top:10px;left:12px;font-size:12px;font-weight:900;color:var(--ink-soft)}
 
   /* ===== 결과 · 완주 ===== */
@@ -956,7 +959,7 @@ var APP={
   nameEN:'Shooong',         /* 파일명·전송 페이로드용 (영문 고정) */
   slug:'shooong',           /* 저장키·파일명 접두어 (영문 소문자) */
   theme:'choco',            /* 기본 테마: choco|yellow|navy|mint|green */
-  ver:'V02.22',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
+  ver:'V02.23',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
                                ⚠ 소수점 뒤 = sw.js CACHE 'shooong-vNNN' 의 릴리스 번호 (사용자 확정 20260817).
                                  배포 반영 여부를 화면에서 눈으로 확인하려고 붙였다.
                                  릴리스마다 sw.js CACHE 와 이 값을 반드시 같이 올려라 — pwtest_c 가 불일치를 잡는다 */
@@ -1103,14 +1106,15 @@ function gradeOf(t,cuts){
   if(t<=cuts[3])return 'C';
   return 'D';
 }
-/* 가중 등급 — 사용자 확정 20260817 (기준표 v2 · 비교 종목) → 20260818 전 종목 확대.
+/* 비교(분수·곱셈) 가중 등급 — 사용자 확정 20260817 (기준표 v2).
+   20260818 전 종목 확대했다가 같은 날 2차 확정으로 비교 전용 원복 (액션은 순수 시간등급 §applyAccuracyGate).
    총점 = 속도 20% + 정확도 80% · RETRY 없음 (구 CMP_WRONG_MAX=10 게이트 폐기 20260817).
    속도 점수 = 시간등급(현행 CUTS 무변경)을 점수화: S100 A85 B70 C55 D40
    정확도 점수 = 100 - 오답×5 (20문항 고정) · 총점컷 [S,A,B,C] 이상 = 95/84/74/62 */
 var CMP_W_SPEED=0.2,CMP_W_ACC=0.8;
 var CMP_SPEED_PTS={S:100,A:85,B:70,C:55,D:40};
 var CMP_SCORE_CUTS=[95,84,74,62];
-var CMP_PROB_N=20; /* 등급 세트는 전부 20문항 (NDB 실측 435세트 — 전 종목 가중 등급 20260818) */
+var CMP_PROB_N=20; /* 비교 세트는 전부 20문항 (NDB 실측 105세트) */
 function cmpScore(timeGrade,wrongCount){
   var acc=100-100/CMP_PROB_N*Math.min(wrongCount,CMP_PROB_N);
   return CMP_W_SPEED*CMP_SPEED_PTS[timeGrade]+CMP_W_ACC*acc;
@@ -1122,19 +1126,19 @@ function cmpScoreGrade(sc){
   if(sc>=CMP_SCORE_CUTS[3])return 'C';
   return 'D';
 }
-/* 세트가 비교 종목인지 (표시·통계 분기용 — 등급 산식은 20260818부터 전 종목 동일) */
+/* 세트가 비교 종목인지 (frac·mulc 전용 가중 등급 적용 대상) */
 function isCmpSet(st){
   if(!st||!st.ps||!st.ps.length)return false;
   for(var i=0;i<st.ps.length;i++){if(st.ps[i].t!=='frac'&&st.ps[i].t!=='mulc')return false;}
   return true;
 }
-/* 정확도 게이트 폐지 (사용자 확정 20260818) — 전 종목 가중 등급 통일.
-   완료 세트는 항상 등급 산출. 구 RETRY(오답≥2 미완료)·CAPPED(오답1 B캡) 폐기 —
-   구 데이터의 reason 은 읽기 경로에서 잔재 호환으로만 취급.
-   isCmp 인자는 현재 미사용이나 호환용 보존 (인자 순서 변경 금지 조항) */
+/* 정확도 게이트 폐지 (사용자 확정 20260818 · 2차) — 완료 세트는 항상 등급 산출.
+   비교(isCmp): 가중 등급 (속도20/정확도80) / 액션: 순수 시간등급 — 오답은 등급 무영향.
+   구 RETRY(오답≥2 미완료)·CAPPED(오답1 B캡) 폐기 — 구 데이터의 reason 은 읽기 경로 잔재 호환 */
 function applyAccuracyGate(grade,wrongCount,completed,isCmp){
   if(!completed)return {grade:null,reason:'INCOMPLETE'};
-  return {grade:cmpScoreGrade(cmpScore(grade,wrongCount)),reason:null};
+  if(isCmp)return {grade:cmpScoreGrade(cmpScore(grade,wrongCount)),reason:null};
+  return {grade:grade,reason:null};
 }
 function gradeByCuts(cuts,tin,wr,comp,isCmp){
   if(!cuts)return {grade:null,reason:'UNDEFINED_BLOCK'};
@@ -1307,18 +1311,18 @@ function selfTest(){
   /* 검증 8장: 등급 경계 (veda ADJUSTED — 55→C, 56→D) */
   if(gradeOf(55,CUTS.veda)!=='C')errs.push('veda 55→C');
   if(gradeOf(56,CUTS.veda)!=='D')errs.push('veda 56→D');
-  /* 검증 8장: 게이트 폐지 — 전 종목 가중 등급 (20260818. 구 RETRY·CAPPED 케이스는 가중 산출로 대체) */
-  var g1=gradeByCuts(CUTS.veda,38,1,true);   /* 시간S·오답1 → 96점 S (구 CAPPED B) */
+  /* 검증 8장: 게이트 폐지 (20260818 2차) — 액션은 순수 시간등급, 오답 무영향 */
+  var g1=gradeByCuts(CUTS.veda,38,1,true);   /* 시간S·오답1 → S (오답 무영향) */
   if(!(g1.grade==='S'&&g1.reason===null))errs.push('액션 시간S오답1 S');
-  var g2=gradeByCuts(CUTS.add2,30,2,true);   /* 시간S·오답2 → 92점 A (구 RETRY) */
-  if(!(g2.grade==='A'&&g2.reason===null))errs.push('액션 시간S오답2 A');
+  var g2=gradeByCuts(CUTS.add2,30,2,true);   /* 시간S·오답2 → S (구 RETRY 폐지) */
+  if(!(g2.grade==='S'&&g2.reason===null))errs.push('액션 시간S오답2 S');
   var g3=gradeByCuts(CUTS.add2,30,0,false);
   if(!(g3.grade===null&&g3.reason==='INCOMPLETE'))errs.push('gate INCOMPLETE');
   var g4=gradeByCuts(CUTS.nope,30,0,true);
   if(!(g4.grade===null&&g4.reason==='UNDEFINED_BLOCK'))errs.push('gate UNDEFINED_BLOCK');
-  var g5=gradeByCuts(CUTS.add2,45,1,true);   /* 시간B·오답1 → 90점 A */
-  if(!(g5.grade==='A'&&g5.reason===null))errs.push('액션 시간B오답1 A');
-  /* 검증 8장: 가중 등급 (속도20/정확도80 · 컷 95/84/74/62 · RETRY 없음 — 20260817, 전 종목 20260818) */
+  var g5=gradeByCuts(CUTS.add2,45,1,true);   /* 시간B·오답1 → B (시간등급 그대로) */
+  if(!(g5.grade==='B'&&g5.reason===null))errs.push('액션 시간B오답1 B');
+  /* 검증 8장: 비교 세트 가중 등급 (속도20/정확도80 · 컷 95/84/74/62 · RETRY 없음 — 20260817) */
   var c1=gradeByCuts(CUTS.fracCmp,100,0,true,true);   /* 시간S·오답0 → 100점 S */
   if(!(c1.grade==='S'&&c1.reason===null))errs.push('cmp 시간S오답0 S');
   var c1b=gradeByCuts(CUTS.fracCmp,100,2,true,true);  /* 시간S·오답2 → 92점 A (S컷 95 미달) */
@@ -1329,8 +1333,8 @@ function selfTest(){
   if(!(c2.grade==='D'&&c2.reason===null))errs.push('cmp 오답11 D');
   var c2b=gradeByCuts(CUTS.fracCmp,350,0,true,true);  /* 시간D·오답0 → 88점 A */
   if(!(c2b.grade==='A'&&c2b.reason===null))errs.push('cmp 시간D오답0 A');
-  var c3g=gradeByCuts(CUTS.mulCmpA,100,10,true,false); /* isCmp 플래그 무관 동일 산식: 시간S·오답10 → 60점 D */
-  if(!(c3g.grade==='D'&&c3g.reason===null))errs.push('플래그 무관 동일 산식');
+  var c3g=gradeByCuts(CUTS.mulCmpA,100,10,true,false); /* isCmp=false 면 액션 규칙: 시간S → S (오답 무영향) */
+  if(!(c3g.grade==='S'&&c3g.reason===null))errs.push('플래그 없으면 액션 규칙');
   if(!isCmpSet({ps:[{t:'frac'},{t:'frac'}]}))errs.push('isCmpSet frac');
   if(!isCmpSet({ps:[{t:'mulc'}]}))errs.push('isCmpSet mulc');
   if(isCmpSet({ps:[{t:'add'}]}))errs.push('isCmpSet add');
@@ -2977,7 +2981,7 @@ function renderCmp(p){
 function cardHTML(p,side){
   if(p.t==='frac')
     return '<div class="frac"><span class="num">'+side[0]+'</span><span class="bar"></span><span class="den">'+side[1]+'</span></div>';
-  return '<div class="mline">'+side[0]+'<br>×'+side[1]+'</div>';
+  return '<div class="mline"><div class="mrow">'+side[0]+'</div><div class="mrow"><span class="mop">×</span>'+side[1]+'</div></div>';
 }
 function pickCard(which){
   if(S.lock)return;
@@ -3027,7 +3031,8 @@ function showResult(g,t,info){
      S는 위 컷이 없어 항상 "빨랐어요", D는 달성 컷이 없어 항상 "C컷까지" (가정 — 이의 시 조정) */
   var spd='';
   if(!isPoly&&cuts&&g&&!(info&&info.reason)){ /* 정상 등급 세트만 (다항 제외) */
-    /* 최종 등급은 가중(속도20/정확도80)이라 시간컷과 어긋난다 → 속도 줄은 시간등급 기준 (20260817 → 전 종목 20260818) */
+    /* 비교 세트: 최종 등급은 가중(속도20/정확도80)이라 시간컷과 어긋난다 → 속도 줄은 시간등급 기준 (20260817).
+       액션 세트는 시간등급=최종 등급이라 gradeOf(t,cuts)===g */
     var gSpd=gradeOf(t,cuts);
     var CUTL=['S','A','B','C'],gi={S:0,A:1,B:2,C:3,D:4}[gSpd];
     if(gi!==undefined){
