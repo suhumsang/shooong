@@ -956,7 +956,7 @@ var APP={
   nameEN:'Shooong',         /* 파일명·전송 페이로드용 (영문 고정) */
   slug:'shooong',           /* 저장키·파일명 접두어 (영문 소문자) */
   theme:'choco',            /* 기본 테마: choco|yellow|navy|mint|green */
-  ver:'V02.21',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
+  ver:'V02.22',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
                                ⚠ 소수점 뒤 = sw.js CACHE 'shooong-vNNN' 의 릴리스 번호 (사용자 확정 20260817).
                                  배포 반영 여부를 화면에서 눈으로 확인하려고 붙였다.
                                  릴리스마다 sw.js CACHE 와 이 값을 반드시 같이 올려라 — pwtest_c 가 불일치를 잡는다 */
@@ -1103,14 +1103,14 @@ function gradeOf(t,cuts){
   if(t<=cuts[3])return 'C';
   return 'D';
 }
-/* 비교(분수·곱셈) 가중 등급 — 사용자 확정 20260817 (기준표 v2).
+/* 가중 등급 — 사용자 확정 20260817 (기준표 v2 · 비교 종목) → 20260818 전 종목 확대.
    총점 = 속도 20% + 정확도 80% · RETRY 없음 (구 CMP_WRONG_MAX=10 게이트 폐기 20260817).
    속도 점수 = 시간등급(현행 CUTS 무변경)을 점수화: S100 A85 B70 C55 D40
    정확도 점수 = 100 - 오답×5 (20문항 고정) · 총점컷 [S,A,B,C] 이상 = 95/84/74/62 */
 var CMP_W_SPEED=0.2,CMP_W_ACC=0.8;
 var CMP_SPEED_PTS={S:100,A:85,B:70,C:55,D:40};
 var CMP_SCORE_CUTS=[95,84,74,62];
-var CMP_PROB_N=20; /* 비교 세트는 전부 20문항 (NDB 실측 105세트) */
+var CMP_PROB_N=20; /* 등급 세트는 전부 20문항 (NDB 실측 435세트 — 전 종목 가중 등급 20260818) */
 function cmpScore(timeGrade,wrongCount){
   var acc=100-100/CMP_PROB_N*Math.min(wrongCount,CMP_PROB_N);
   return CMP_W_SPEED*CMP_SPEED_PTS[timeGrade]+CMP_W_ACC*acc;
@@ -1122,20 +1122,19 @@ function cmpScoreGrade(sc){
   if(sc>=CMP_SCORE_CUTS[3])return 'C';
   return 'D';
 }
-/* 세트가 비교 종목인지 (frac·mulc 전용 가중 등급 적용 대상) */
+/* 세트가 비교 종목인지 (표시·통계 분기용 — 등급 산식은 20260818부터 전 종목 동일) */
 function isCmpSet(st){
   if(!st||!st.ps||!st.ps.length)return false;
   for(var i=0;i<st.ps.length;i++){if(st.ps[i].t!=='frac'&&st.ps[i].t!=='mulc')return false;}
   return true;
 }
-/* 정확도 게이트 (설계서 03 — 다항 미적용, 이중 적용 금지)
-   isCmp=true (비교 세트): 가중 등급으로 대체 — 항상 등급 산출, RETRY·캡 없음 (사용자 확정 20260817) */
+/* 정확도 게이트 폐지 (사용자 확정 20260818) — 전 종목 가중 등급 통일.
+   완료 세트는 항상 등급 산출. 구 RETRY(오답≥2 미완료)·CAPPED(오답1 B캡) 폐기 —
+   구 데이터의 reason 은 읽기 경로에서 잔재 호환으로만 취급.
+   isCmp 인자는 현재 미사용이나 호환용 보존 (인자 순서 변경 금지 조항) */
 function applyAccuracyGate(grade,wrongCount,completed,isCmp){
   if(!completed)return {grade:null,reason:'INCOMPLETE'};
-  if(isCmp)return {grade:cmpScoreGrade(cmpScore(grade,wrongCount)),reason:null};
-  if(wrongCount>=2)return {grade:null,reason:'RETRY'};
-  if(wrongCount===1&&(grade==='S'||grade==='A'))return {grade:'B',reason:'CAPPED'};
-  return {grade:grade,reason:null};
+  return {grade:cmpScoreGrade(cmpScore(grade,wrongCount)),reason:null};
 }
 function gradeByCuts(cuts,tin,wr,comp,isCmp){
   if(!cuts)return {grade:null,reason:'UNDEFINED_BLOCK'};
@@ -1308,18 +1307,18 @@ function selfTest(){
   /* 검증 8장: 등급 경계 (veda ADJUSTED — 55→C, 56→D) */
   if(gradeOf(55,CUTS.veda)!=='C')errs.push('veda 55→C');
   if(gradeOf(56,CUTS.veda)!=='D')errs.push('veda 56→D');
-  /* 검증 8장: 정확도 게이트 */
-  var g1=gradeByCuts(CUTS.veda,38,1,true);
-  if(!(g1.grade==='B'&&g1.reason==='CAPPED'))errs.push('gate CAPPED');
-  var g2=gradeByCuts(CUTS.add2,30,2,true);
-  if(!(g2.grade===null&&g2.reason==='RETRY'))errs.push('gate RETRY');
+  /* 검증 8장: 게이트 폐지 — 전 종목 가중 등급 (20260818. 구 RETRY·CAPPED 케이스는 가중 산출로 대체) */
+  var g1=gradeByCuts(CUTS.veda,38,1,true);   /* 시간S·오답1 → 96점 S (구 CAPPED B) */
+  if(!(g1.grade==='S'&&g1.reason===null))errs.push('액션 시간S오답1 S');
+  var g2=gradeByCuts(CUTS.add2,30,2,true);   /* 시간S·오답2 → 92점 A (구 RETRY) */
+  if(!(g2.grade==='A'&&g2.reason===null))errs.push('액션 시간S오답2 A');
   var g3=gradeByCuts(CUTS.add2,30,0,false);
   if(!(g3.grade===null&&g3.reason==='INCOMPLETE'))errs.push('gate INCOMPLETE');
   var g4=gradeByCuts(CUTS.nope,30,0,true);
   if(!(g4.grade===null&&g4.reason==='UNDEFINED_BLOCK'))errs.push('gate UNDEFINED_BLOCK');
-  var g5=gradeByCuts(CUTS.add2,45,1,true); /* 오답1 + 시간 B → B 유지 (캡 미작동 구간) */
-  if(!(g5.grade==='B'&&g5.reason===null))errs.push('gate B유지');
-  /* 검증 8장: 비교 세트 가중 등급 (속도20/정확도80 · 컷 95/84/74/62 · RETRY 없음 — 20260817) */
+  var g5=gradeByCuts(CUTS.add2,45,1,true);   /* 시간B·오답1 → 90점 A */
+  if(!(g5.grade==='A'&&g5.reason===null))errs.push('액션 시간B오답1 A');
+  /* 검증 8장: 가중 등급 (속도20/정확도80 · 컷 95/84/74/62 · RETRY 없음 — 20260817, 전 종목 20260818) */
   var c1=gradeByCuts(CUTS.fracCmp,100,0,true,true);   /* 시간S·오답0 → 100점 S */
   if(!(c1.grade==='S'&&c1.reason===null))errs.push('cmp 시간S오답0 S');
   var c1b=gradeByCuts(CUTS.fracCmp,100,2,true,true);  /* 시간S·오답2 → 92점 A (S컷 95 미달) */
@@ -1330,8 +1329,8 @@ function selfTest(){
   if(!(c2.grade==='D'&&c2.reason===null))errs.push('cmp 오답11 D');
   var c2b=gradeByCuts(CUTS.fracCmp,350,0,true,true);  /* 시간D·오답0 → 88점 A */
   if(!(c2b.grade==='A'&&c2b.reason===null))errs.push('cmp 시간D오답0 A');
-  var c3g=gradeByCuts(CUTS.mulCmpA,100,10,true,false);
-  if(!(c3g.grade===null&&c3g.reason==='RETRY'))errs.push('cmp 플래그없으면 기존규칙');
+  var c3g=gradeByCuts(CUTS.mulCmpA,100,10,true,false); /* isCmp 플래그 무관 동일 산식: 시간S·오답10 → 60점 D */
+  if(!(c3g.grade==='D'&&c3g.reason===null))errs.push('플래그 무관 동일 산식');
   if(!isCmpSet({ps:[{t:'frac'},{t:'frac'}]}))errs.push('isCmpSet frac');
   if(!isCmpSet({ps:[{t:'mulc'}]}))errs.push('isCmpSet mulc');
   if(isCmpSet({ps:[{t:'add'}]}))errs.push('isCmpSet add');
@@ -2357,7 +2356,7 @@ function dayGamScan(d,dayIso){
     if(!e.at||locDate(e.at)!==dayIso)continue;
     if(POLY_SETS[e.s])continue;              /* 다항 제외 */
     if(e.comp!==1)continue;                  /* 중도 이탈(및 구 v3 기록) 제외 */
-    if(e.reason){combo=0;straight=0;continue;} /* RETRY/CAPPED: 캡 후 등급 무관 0 */
+    if(e.reason){combo=0;straight=0;continue;} /* 구 데이터 RETRY/CAPPED 잔재: 0 리셋 (신규 기록은 reason 항상 null — 20260818) */
     if(e.g==='S'){combo++;straight++;}
     else if(e.g==='A'){combo++;straight=0;}
     else{combo=0;straight=0;}
@@ -2450,7 +2449,7 @@ function perfectDayInfo(d,w,dayIso){
   for(i=0;i<d.log.length;i++){
     var e=d.log[i];
     if(e.w===w.no&&e.at&&locDate(e.at)===dayIso&&e.comp===1&&(e.reason==='RETRY'||e.reason==='CAPPED'))
-      return {a:false,s:false}; /* 게이트 발생 — 둘 다 실격 */
+      return {a:false,s:false}; /* 구 데이터 게이트 잔재 — 둘 다 실격 (신규 기록은 미발생, 20260818) */
   }
   return {a:allA,s:allS};
 }
@@ -2613,7 +2612,7 @@ function rankLevel(d){
       대본 원본은 tools/coach_script_20260816.md 에 보존.
    칭찬 = 등급별 6개 × 5등급 = 30개. praise01~06 S / 07~12 A / 13~18 B / 19~24 C / 25~30 D.
    발동: 매 세트 (주기 폐지 — PRAISE_EVERY·CHEER 카운터 삭제).
-   RETRY(등급 없음)도 칭찬한다 — D 버킷 (사용자 확정 20260816 · 2차. "칭찬 좀 팍팍").
+   등급 없음(구 RETRY — 20260818 게이트 폐지로 신규 미발생)도 칭찬 — D 버킷 (사용자 확정 20260816 · 2차. "칭찬 좀 팍팍").
    다항(플래시) 세트만 코치 음성 없음 → 응원음(SND_CHEER). 다항에서는 병목·신기록도 발동 안 함.
    콤보 3/5/10 · 스트레이트 3/5 는 대사에 숫자가 박혀 있어 기준 변경 불가 (재녹음 선행 필요). */
 var COACH_N={poly:5,mission:2,streak:2,bottleneck:3};  /* 카테고리별 음성 개수 (로테이션용) */
@@ -2666,7 +2665,7 @@ function coachPick(ev){
     return {main:{id:'coach_poly'+coachZ2(coachRot('poly4',4)+1)}};
   }
   if(prim)return {main:prim};
-  var pr=coachPraise(ev.graded?ev.grade:'D'); /* RETRY = D 버킷 (사용자 확정 20260816 · 2차) */
+  var pr=coachPraise(ev.graded?ev.grade:'D'); /* 등급 없음 = D 버킷 (구 RETRY — 게이트 폐지 후 방어용, 20260818) */
   return pr?{main:pr}:null;
 }
 /* 결과 배지 획득 연출 (b2 — 표시 전용. permCheck 반환은 이름 배열 그대로, 이름→이모지는 여기서 역참조) */
@@ -2702,16 +2701,11 @@ function finishSet(){
     info={poly:{c:c3+c5,n:st.ps.length}};
   }else{
     var r=gradeByCuts(st.cuts,tin,S.setWrong,true,isCmpSet(st));
-    if(r.grade===null){
-      /* RETRY: done 미기록 → 세트 미완료 유지, 재통과해야 미션 완주 (확정 4) */
-      d.log.push({w:S.wod,s:S.set,g:null,t:t,wr:S.setWrong,at:at,tin:tin,sub:st.sub,comp:1,reason:r.reason});
-      info={reason:r.reason};
-    }else{
-      d.done[keyOf(S.wod,S.set)]={g:r.grade,t:t,wr:S.setWrong,at:at,tin:tin,v:4};
-      d.log.push({w:S.wod,s:S.set,g:r.grade,t:t,wr:S.setWrong,at:at,tin:tin,sub:st.sub,comp:1,reason:r.reason});
-      info={reason:r.reason};
-      gFinal=r.grade;
-    }
+    /* 게이트 폐지(20260818): 완료 세트는 r.grade 항상 산출 — 구 RETRY 미기록 분기 삭제 */
+    d.done[keyOf(S.wod,S.set)]={g:r.grade,t:t,wr:S.setWrong,at:at,tin:tin,v:4};
+    d.log.push({w:S.wod,s:S.set,g:r.grade,t:t,wr:S.setWrong,at:at,tin:tin,sub:st.sub,comp:1,reason:r.reason});
+    info={reason:r.reason};
+    gFinal=r.grade;
   }
   d.cur=null;
   var nowComplete=wodComplete(w);
@@ -3014,12 +3008,9 @@ function showResult(g,t,info){
     /* 다항: 세트별 등급 없음, 정답 수만 (확정 8) */
     big='<div class="rg">'+info.poly.c+' / '+info.poly.n+'</div>';
     note='<br>다항 등급은 미션 완주 시 5세트 합산으로 판정합니다.';
-  }else if(info&&info.reason==='RETRY'){
-    big='<div class="rg">재도전</div>';
-    note='<br>오답 2문제 이상은 등급 없이 미완료로 남습니다.'; /* 1줄 유지 — 캐릭터 이미지와 겹침 방지. 비교 세트는 RETRY 없음(20260817)이라 이 분기 미도달 */
   }else{
+    /* 게이트 폐지(20260818): RETRY·CAPPED 분기 삭제 — 완료 세트는 항상 등급 표시 */
     big='<div class="rg'+(g?' g-'+g:'')+'">'+(g||'—')+'</div>';
-    if(info&&info.reason==='CAPPED')note='<br>오답 1문제는 등급이 B까지만 인정됩니다.';
   }
   /* 콤보 줄 (스펙 1장·13장): 당일 파생 현재값, 2 미만 항목 숨김 */
   var gsR=dayGamScan(DBS.get(),locDate(new Date()));
@@ -3035,9 +3026,9 @@ function showResult(g,t,info){
      달성 컷~다음 컷 사이 반보다 느리면 "달성컷 기준보다 N초 빨랐어요!", 반보다 빠르면 "다음컷까지 N초!"
      S는 위 컷이 없어 항상 "빨랐어요", D는 달성 컷이 없어 항상 "C컷까지" (가정 — 이의 시 조정) */
   var spd='';
-  if(!isPoly&&cuts&&g&&!(info&&info.reason)){ /* 정상 등급 세트만 (다항·재도전·CAPPED 제외) */
-    /* 비교 세트: 최종 등급은 가중(속도20/정확도80)이라 시간컷과 어긋난다 → 속도 줄만 시간등급 기준 (20260817) */
-    var gSpd=isCmpSet(curSet())?gradeOf(t,cuts):g;
+  if(!isPoly&&cuts&&g&&!(info&&info.reason)){ /* 정상 등급 세트만 (다항 제외) */
+    /* 최종 등급은 가중(속도20/정확도80)이라 시간컷과 어긋난다 → 속도 줄은 시간등급 기준 (20260817 → 전 종목 20260818) */
+    var gSpd=gradeOf(t,cuts);
     var CUTL=['S','A','B','C'],gi={S:0,A:1,B:2,C:3,D:4}[gSpd];
     if(gi!==undefined){
       var sTxt=null,sCol=null;
@@ -3432,7 +3423,7 @@ function renderDaily(){
     tt+=e.tin||0; /* 플레이타임 = tin */
     if(!st)continue;
     nSet++;
-    if(e.reason==='RETRY')nRetry++;
+    if(e.reason==='RETRY')nRetry++; /* 구 데이터 잔재 표시 호환 (신규 미발생 — 20260818) */
     if(e.g&&gset[e.g]&&gset[e.g].indexOf(e.s)<0)gset[e.g].push(e.s);
     if(POLY_SETS[e.s]){fTot+=st.ps.length;fOk+=st.ps.length-(e.wr||0);}
     tq+=st.ps.length;tok+=st.ps.length-(e.wr||0);
