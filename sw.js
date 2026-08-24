@@ -2,8 +2,8 @@
    ★ CACHE 값은 app_template.html 의 APP.slug 와 반드시 맞출 것 (앱마다 달라야 함).
      예) shooong-v001 / vitamin-v001 / flash-v001 / frac-v001
    ★ 릴리스마다 뒤 번호를 올릴 것 (v001 → v002 …). 안 올리면 구버전이 캐시로 남는다. */
-var CACHE = 'shooong-v028';
-var ASSETS = ['./', './index.html', './icon.png', './praxis_ending.mp4', './praxis_intro.mp4']; /* 엔딩(20260811)·인트로(20260818) 비디오 */
+var CACHE = 'shooong-v030';
+var ASSETS = ['./', './index.html', './icon.png', './bgm.mp3']; /* v030: 인트로·엔딩 mp4 제거(영상 삭제) → 캐시 공간 확보 / bgm.mp3 추가(키없는 유저 배경음악). 추후 원복 시 mp4 2개 되살리고 bgm 제거 */
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
