@@ -352,6 +352,18 @@
   #premDlg input{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:14px;
     background:var(--card);color:var(--ink);font-size:15px;font-weight:800;text-align:center;
     padding:12px 10px;letter-spacing:1px;outline:none}
+  /* v031 접속 게이트 (하드 잠금 — 유효 키 없으면 앱 이용 불가). 불투명 전체 오버레이. 추후 원복: 이 블록 + #accGate + JS + 부팅호출 제거 */
+  #accGate{display:none;position:fixed;inset:0;z-index:200;background:var(--bg);align-items:center;justify-content:center;padding:24px}
+  #accGate.open{display:flex}
+  #accGate .dbox{background:var(--card);border-radius:20px;padding:28px 22px;max-width:340px;width:100%;text-align:center;box-shadow:0 12px 44px rgba(0,0,0,.18)}
+  #accGate .dlock{font-size:40px;line-height:1;margin-bottom:12px}
+  #accGate .dmsg{font-size:15px;font-weight:700;color:var(--ink);line-height:1.6;margin-bottom:16px}
+  #accGate .dsub{font-size:12px;font-weight:800;color:var(--ink-soft);min-height:17px;margin:10px 0 4px}
+  #accGate .dsub.bad{color:var(--bad)}
+  #accGate input{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:14px;
+    background:var(--card);color:var(--ink);font-size:15px;font-weight:800;text-align:center;
+    padding:13px 12px;letter-spacing:1px;outline:none}
+  #accGate input:focus{border-color:var(--ink)}
   .menu .m.lock .ic{position:relative}
   .menu .m.lock .ic::after{content:'🔒';position:absolute;right:-6px;top:-4px;font-size:12px;line-height:1}
   /* 설정 안 유료 카드 (2026-08-14) */
@@ -1153,6 +1165,17 @@
   </div>
 </div>
 
+<!-- v031 접속 게이트 (하드 잠금 — 유효 키 보유자만 앱 이용. 닫기 없음). 추후 원복: 이 블록 + CSS #accGate + JS accGate + 부팅 accGateCheck 제거 -->
+<div id="accGate">
+  <div class="dbox">
+    <div class="dlock">🔒</div>
+    <div class="dmsg">이용 키가 필요합니다.<br>발급받은 키를 입력해 주세요.</div>
+    <input id="accKey" type="text" placeholder="이용 키 입력" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false">
+    <div class="dsub" id="accMsg"></div>
+    <button class="cta" id="accGo">입력</button>
+  </div>
+</div>
+
 <!-- 이탈 확인 다이얼로그 (스펙 2장 — 오버레이, 문구 13장 확정) -->
 <div id="exitDlg">
   <div class="dbox">
@@ -1191,7 +1214,7 @@ var APP={
   nameEN:'Shooong',         /* 파일명·전송 페이로드용 (영문 고정) */
   slug:'shooong',           /* 저장키·파일명 접두어 (영문 소문자) */
   theme:'choco',            /* 기본 테마: choco|yellow|navy|mint|green */
-  ver:'V02.30',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
+  ver:'V02.31',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
                                ⚠ 소수점 뒤 = sw.js CACHE 'shooong-vNNN' 의 릴리스 번호 (사용자 확정 20260817).
                                  배포 반영 여부를 화면에서 눈으로 확인하려고 붙였다.
                                  릴리스마다 sw.js CACHE 와 이 값을 반드시 같이 올려라 — pwtest_c 가 불일치를 잡는다 */
@@ -1732,6 +1755,7 @@ function buzz(ms){try{if(typeof premOK==='function'&&!premOK())return;if(!prefGe
 var BGM_VOL=0.25,_bgmOn=false;
 function bgmStart(){
   if(_bgmOn)return;
+  if(typeof accGateOpen==='function'&&accGateOpen())return; /* v031: 접속 게이트(잠금화면)에선 BGM 미재생 */
   try{if(typeof premOK==='function'&&premOK())return;}catch(e){return;}   /* 키 있는 유저: BGM 없음 */
   var a=document.getElementById('bgm');if(!a)return;
   try{a.volume=BGM_VOL;a.loop=true;}catch(e){}
@@ -1945,27 +1969,13 @@ var PREM={
      아래 카드만 유료 (사용자 확정 20260814): .setcard.prem 클래스로 표시 */
   setCards:['premMail','premDbCsv','premScCsv'],
   list:'keys.json',                                  /* 원격 키 목록 (같은 폴더 정적 파일). 탈퇴자 차단용 */
-  keys:[                                             /* 내장 기본 목록 = 원격을 못 받았을 때의 대체본 */
+  keys:[   /* v031 접속제한: 잔류 7키만 유효 (원격 keys.json 못 받을 때 내장 대체본). 추후 원복: 이전 전체 목록 복구 */
     {id:'DEV',h:'7c06da6340776d3521e0a6717e977589c4eece1e3467fc477fb7767c942cc7f5'},
     {id:'A01',h:'92ce37d4232087d9b8b16f8607f5b941a44e295370e2645ad97483da61c47af4'},
-    {id:'A02',h:'19a99029e0b32a2bdb0c95af64043ac1684dc01c8803920dd838c92074b43212'},
-    {id:'A03',h:'2c77d3dfa361e14353d3b41ad74b2712f6a164301ad1db213006ec7a36c037de'},
-    {id:'A04',h:'23162e7c1262c90a7eaf70337af427ed90e050e6bea503be1ec1cbcf4ec5943f'},
-    {id:'A05',h:'7cf58efe8a4885d686bc9fb5e885ca82a9c775f7e7c0833edfc7d67032314639'},
     {id:'A06',h:'856899c4d50bd913c1b5f9248a07bf6bcd4b11ef24ddd71ab1a3f017953dcd05'},
     {id:'A07',h:'aab4f0241d7a09985f1b2851f609827a4320495ab548a85854c1097f6556a550'},
-    {id:'A08',h:'a798f80343e1c22ca4e2780560e94a236baca7dd18eb7dc29b72810b2ad24b25'},
-    {id:'A09',h:'515749b7a6ca7487311781cac7120b603bfb8762770f7f94baa7a89cfb5ce07d'},
-    {id:'A10',h:'528249c33c7f8dc6e9f515b35e256ff29f8c8770d9b3c7868e32a42d6a8a6c53'},
-    {id:'A11',h:'d652691285907b61fc961ea0150e0f91e98c7e0170e1cfda9920d66e98d4faf4'},
-    {id:'A12',h:'0ce98dd227d9f77771e96ee13e50ed99d20a2509f4f40be1bf22cda1b371b076'},
     {id:'A13',h:'3f16f2493f541bbbbff6a743c29e73408b3e28800f237100c143663ef4298702'},
     {id:'A14',h:'4ca52fd05917d1b05da6f9a8ebb60f01ecb91126a2148246ab6fe0491b0dab17'},
-    {id:'A15',h:'684ab085e5754db65918c598c5c20c6cabd90d3a8cc0c16a1ccb8d29db2cf899'},
-    {id:'A16',h:'607b85a20241d663c905cd4c31d3d87cd594fcbbe2ec293eb2c659d96845c4b3'},
-    {id:'A17',h:'12cdb80dd294a06277d430e97cd9ab82e7a6c3fcbf05d4cd0919eba1637f35cf'},
-    {id:'A18',h:'ff0434f9bf893501cc2b42b6db2dbe46269917dca4a1c78431328542c6f927a6'},
-    {id:'A19',h:'47d80df418743629f3b378f76eac042da8db948b53bd5531bc4de41f8a7b68cc'},
     {id:'A20',h:'41d5522c5dec3b138089eae4a9ab5665cb350cc2aecbaf782bfb3e311890e284'}
   ]
 };
@@ -2057,6 +2067,7 @@ function premApplyList(o){
   if(!out.length)return false;                 /* 빈 목록은 사고로 보고 무시 */
   try{localStorage.setItem(premDbKey(),JSON.stringify({at:Date.now(),keys:out}));}catch(e2){}
   premPaint();
+  if(typeof accGateCheck==='function')accGateCheck(); /* v031: 원격 목록 갱신 후 접속 게이트 재평가 (구 캐시로 통과했던 무효 키 차단) */
   return true;
 }
 /* 부팅 시 1회 갱신 시도. 실패해도 조용히 넘어간다 (오프라인 정상 동작). */
@@ -2112,6 +2123,30 @@ function premGate(fn){
   if(premOK()){fn();return true;}
   premOpen();return false;
 }
+/* ===== v031 접속 게이트 — 유효 키(잔류 7키) 없으면 앱 전체 잠금 (전 유저). 테스트는 window.__NOGATE 로 우회.
+   추후 원복: 이 블록 + <div id="accGate"> + CSS + 부팅 accGateCheck() + premApplyList 재검 + bgmStart 가드 제거 ===== */
+function accGateShow(){var g=document.getElementById('accGate');if(g)g.classList.add('open');}
+function accGateHide(){var g=document.getElementById('accGate');if(g)g.classList.remove('open');}
+function accGateOpen(){var g=document.getElementById('accGate');return !!(g&&g.classList.contains('open'));}
+function accGateCheck(){
+  if(window.__NOGATE)return;                 /* 테스트 우회 (__NOINTRO 와 동일 취지) */
+  if(premOK())accGateHide(); else accGateShow();
+}
+(function(){
+  function submit(){
+    var ky=document.getElementById('accKey'),ms=document.getElementById('accMsg');
+    if(!ky)return;
+    if(premTry(ky.value)){                    /* premTry: 정규화+sha256 후 목록 대조, 통과 시 라이선스 저장 */
+      if(ms){ms.textContent='';ms.classList.remove('bad');}
+      accGateHide(); renderHome(); show('home');
+    }else{
+      if(ms){ms.textContent='키가 올바르지 않습니다.'; ms.classList.add('bad');}
+    }
+  }
+  var go=document.getElementById('accGo'),ky=document.getElementById('accKey');
+  if(go)go.addEventListener('click',submit);
+  if(ky)ky.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();submit();}});
+})();
 
 $('ctaBtn').addEventListener('click',function(){openPicker();});
 /* 티어·배지 접기 토글 (사용자 확정 20260817 — 런타임 상태, 저장 안 함 → 앱 재실행 시 항상 접힘) */
@@ -4134,6 +4169,7 @@ window.NPW={curProb:curProb,startSet:startSet,openSets:openSets,showResult:showR
   premSync();  /* 원격 키 목록 갱신 — 탈퇴자 차단 (2026-08-14) */
   renderHome();
   show('home');
+  accGateCheck(); /* v031 접속 게이트 — 유효 키 없으면 앱 잠금 (premSync 완료 후 premApplyList 에서 재검) */
   bgmStart(); /* BGM v030 — 키 없는 유저 배경음악 시도 (자동재생 정책상 첫 제스처에서 실제 시작; 여기선 이미 제스처 후면 즉시) */
   /* ===== v030 영상 제거 (전 유저) — 추후 원복: 아래 한 줄 되살리기 =====
      if(!window.__NOINTRO)maybeIntroVid();  // 인트로 (20260818) — 홈 위 오버레이, 하루 1회. __NOINTRO 는 테스트 전용 차단
