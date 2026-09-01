@@ -977,13 +977,15 @@
       <div class="fname" id="mailMsg"></div>
     </div>
     <div class="setcard prem" id="premDbCsv">
-      <div class="setrow" style="border-bottom:none;padding-bottom:4px"><div class="sl">연산 데이터 가져오기(csv)<small>연산 DB 업로드 (CSV)</small></div></div>
+      <div class="setrow" style="border-bottom:none;padding-bottom:4px"><div class="sl">연산 데이터 가져오기<small>연산 DB 업로드 (xlsx·tsv·csv) — v032</small></div></div>
       <div class="filebtns">
         <button class="sbtn" id="dbFind">파일 찾기</button>
         <button class="sbtn pri" id="dbApply" disabled>승인</button>
+        <button class="sbtn" id="dbReset" style="display:none">내장 데이터로 복원</button>
       </div>
-      <input type="file" id="dbFile" accept=".csv,text/csv" style="display:none">
+      <input type="file" id="dbFile" accept=".xlsx,.csv,.tsv,.txt,text/csv,text/tab-separated-values,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
       <div class="fname" id="dbFname">선택된 파일 없음</div>
+      <div class="fname" id="dbMsg"></div>
     </div>
     <div class="setcard prem" id="premScCsv">
       <div class="setrow" style="border-bottom:none;padding-bottom:4px"><div class="sl">과거 점수 데이터 가져오기(csv)<small>점수 기록 업로드 (CSV)</small></div></div>
@@ -1214,7 +1216,7 @@ var APP={
   nameEN:'Shooong',         /* 파일명·전송 페이로드용 (영문 고정) */
   slug:'shooong',           /* 저장키·파일명 접두어 (영문 소문자) */
   theme:'choco',            /* 기본 테마: choco|yellow|navy|mint|green */
-  ver:'V02.31',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
+  ver:'V02.32',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
                                ⚠ 소수점 뒤 = sw.js CACHE 'shooong-vNNN' 의 릴리스 번호 (사용자 확정 20260817).
                                  배포 반영 여부를 화면에서 눈으로 확인하려고 붙였다.
                                  릴리스마다 sw.js CACHE 와 이 값을 반드시 같이 올려라 — pwtest_c 가 불일치를 잡는다 */
@@ -2229,9 +2231,286 @@ function wireLvBtn(id,delta){
 }
 wireLvBtn('lvDn',-1);wireLvBtn('lvUp',1);
 renderFlashLv();
-/* 데이터 가져오기 — 파일 선택까지만 동작. 승인(파싱→반영)은 양식 스펙 확정 후 연결 */
+/* ============ v032 연산 DB 업로드 (xlsx·tsv·csv) — 사용자 지시 20260901 ============
+   설정>연산 데이터 가져오기: 파일 파싱 → 전수 검증(tools/tsv2ndb.py 와 동일 규칙 + selfTest 무결성)
+   → 오류 1건이라도 전체 거부(사용자 확정 20260901). 통과 시 NDB 교체 + localStorage 영구 저장.
+   '내장 데이터로 복원' 버튼으로 원복. 부팅 시 저장본 재검증 후 로드(실패 시 자동 폐기, 내장 유지).
+   xlsx 해석: 외부 라이브러리 없이 ZIP 직접 파싱 + DecompressionStream(브라우저 내장, iOS16.4+/크롬80+).
+   미지원 브라우저는 TSV 업로드 안내. 저장 키는 기록(LSKEY)·이용키(_lic)와 분리. */
+var NDB_BUILTIN=NDB.slice();           /* 내장 원본 보존 (복원용 — 미션 객체는 불변이라 얕은 복사로 충분) */
+var NDBUP_KEY=APP.slug+'_ndb';
+var NDBUP=(function(){
+  /* 세트→sub 필드 (tools/tsv2ndb.py SET_MAP 의 sub 열 사본 — 재정렬 금지) */
+  var SET_SUB={4:'veda',6:'poly',8:'tenseq',9:'plain',10:'uniteq',11:'a',12:'poly',13:'veda',
+    19:'poly',20:'tenseq',21:'b',22:'plain',23:'veda',25:'poly',26:'uniteq',29:'plain',31:'poly',33:'c'};
+  /* 종목키→특수 열 기대값 (tsv2ndb SPECIAL 사본) */
+  function specialOf(k){
+    if(k===null)return '다항';
+    if(k==='veda')return '베다'; if(k==='tenseq')return '십등일합'; if(k==='uniteq')return '일등십합';
+    if(k==='fracCmp'||k.indexOf('mulCmp')===0)return '비교';
+    return '일반';
+  }
+  function typeOf(k){
+    if(k===null)return 'poly';
+    if(k.indexOf('add')===0)return 'add'; if(k.indexOf('sub')===0)return 'sub';
+    if(k==='fracCmp')return 'frac'; if(k.indexOf('mulCmp')===0)return 'mulc';
+    return 'mul';
+  }
+  function num(s){s=String(s).trim();var v=s.indexOf('.')>=0?parseFloat(s):parseInt(s,10);return isFinite(v)?v:null;}
+  /* ---- 행 배열 → NDB 후보 (tsv2ndb.convert 포팅: 구조·특수·수 개수·패턴 소속 검증) ---- */
+  function convert(rows){
+    var errs=[];
+    if(!rows||!rows.length)return {ndb:null,errs:['빈 파일']};
+    var hdr=rows[0].map(function(h){return String(h).trim();}),col={};
+    var need=['미션회차','세트넘버','특수','수1','수2','수3','수4','수5','정답'];
+    for(var ni=0;ni<need.length;ni++){
+      var ix=hdr.indexOf(need[ni]);
+      if(ix<0)errs.push('필수 열 없음: '+need[ni]);
+      col[need[ni]]=ix;
+    }
+    if(errs.length)return {ndb:null,errs:errs};
+    var missions={},order=[];
+    for(var r=1;r<rows.length;r++){
+      var row=rows[r];
+      if(!row||String(row.join('')).trim()==='')continue;
+      var rl='행'+(r+1);
+      var m=parseInt(String(row[col['미션회차']]).replace(/\D/g,''),10);
+      var s=parseInt(String(row[col['세트넘버']]),10);
+      if(!isFinite(m)||!isFinite(s)){errs.push(rl+' 미션/세트 번호 오류');continue;}
+      if(!SETKEY.hasOwnProperty(s)){errs.push(rl+' 세트번호 범위 밖: '+s);continue;}
+      var k=SETKEY[s],t=typeOf(k);
+      var sp=String(row[col['특수']]==null?'':row[col['특수']]).trim();
+      if(sp!==specialOf(k))errs.push(rl+' 특수 불일치: "'+sp+'"≠"'+specialOf(k)+'"');
+      var vals=[];
+      for(var vi=1;vi<=5;vi++){
+        var cell=String(row[col['수'+vi]]==null?'':row[col['수'+vi]]).trim();
+        if(cell==='')continue;
+        var v=num(cell);
+        if(v===null){errs.push(rl+' 수'+vi+' 숫자 아님: '+cell);v=0;}
+        vals.push(v);
+      }
+      var ansRaw=String(row[col['정답']]==null?'':row[col['정답']]).trim(),p=null,a,b;
+      if(t==='poly'){
+        if(vals.length!==3&&vals.length!==5){errs.push(rl+' 다항 항수 오류(3 또는 5): '+vals.length);continue;}
+        p={t:'poly',terms:vals,ans:num(ansRaw)};
+        if(p.ans===null){errs.push(rl+' 정답 숫자 아님: '+ansRaw);continue;}
+      }else if(t==='add'||t==='sub'||t==='mul'){
+        if(vals.length!==2){errs.push(rl+' 수 개수 오류(2 필요): '+vals.length);continue;}
+        a=vals[0];b=vals[1];
+        p={t:t,a:a,b:b,ans:num(ansRaw)};
+        if(p.ans===null){errs.push(rl+' 정답 숫자 아님: '+ansRaw);continue;}
+        /* 세트 소속 규칙 (tsv2ndb 와 동일 — 우선순위 분류가 아니라 그 종목의 생성 규칙 충족 여부) */
+        if(k==='veda'&&!(a>=11&&a<=19&&b>=11&&b<=19))errs.push(rl+' 베다 규칙 위반: '+a+'×'+b);
+        if(k==='tenseq'&&!(Math.floor(a/10)===Math.floor(b/10)&&a%10+b%10===10))errs.push(rl+' 십등일합 규칙 위반: '+a+'×'+b);
+        if(k==='uniteq'&&!(a%10===b%10&&Math.floor(a/10)+Math.floor(b/10)===10))errs.push(rl+' 일등십합 규칙 위반: '+a+'×'+b);
+        if(k==='mul2x2'&&mulPattern(a,b)!=='plain')errs.push(rl+' 일반세트 오염: '+a+'×'+b+'='+mulPattern(a,b));
+      }else{ /* frac | mulc */
+        if(vals.length!==4){errs.push(rl+' 수 개수 오류(4 필요): '+vals.length);continue;}
+        if(ansRaw!=='<'&&ansRaw!=='>'){errs.push(rl+' 비교 정답은 < 또는 > : "'+ansRaw+'"');continue;}
+        p={t:t,l:[vals[0],vals[1]],r:[vals[2],vals[3]],ans:ansRaw};
+      }
+      if(!missions[m]){missions[m]={};order.push(m);}
+      if(!missions[m][s])missions[m][s]=[];
+      missions[m][s].push(p);
+    }
+    var ndb=[];
+    order.sort(function(x,y){return x-y;});
+    for(var oi=0;oi<order.length;oi++){
+      var mno=order[oi],ms=missions[mno],sets=[];
+      var snos=Object.keys(ms).map(Number).sort(function(x,y){return x-y;});
+      for(var si=0;si<snos.length;si++){
+        var sno=snos[si],k2=SETKEY[sno];
+        var e={no:sno,cuts:k2===null?null:CUTS[k2]};
+        if(SET_SUB[sno])e.sub=SET_SUB[sno];
+        e.ps=ms[sno];
+        sets.push(e);
+      }
+      ndb.push({no:mno,sets:sets});
+    }
+    return {ndb:ndb,errs:errs};
+  }
+  /* ---- NDB 교체(실패 시 원복) — 산술·구조 무결성은 기존 selfTest 재사용 ---- */
+  function swap(arr){
+    var bak=NDB.slice(),i;
+    NDB.length=0;for(i=0;i<arr.length;i++)NDB.push(arr[i]);
+    var errs=selfTest();
+    if(errs.length){NDB.length=0;for(i=0;i<bak.length;i++)NDB.push(bak[i]);}
+    return errs;
+  }
+  /* ---- 텍스트(TSV/CSV) — UTF-8 우선, 실패 시 EUC-KR(엑셀 한국어 저장) ---- */
+  function decodeText(buf){
+    var u=new Uint8Array(buf);
+    if(u.length>=3&&u[0]===0xEF&&u[1]===0xBB&&u[2]===0xBF)u=u.subarray(3);
+    try{return new TextDecoder('utf-8',{fatal:true}).decode(u);}
+    catch(e){return new TextDecoder('euc-kr').decode(u);}
+  }
+  function parseDelimited(text){
+    var lines=text.split(/\r\n|\r|\n/),rows=[],i;
+    var d=lines[0]&&lines[0].indexOf('\t')>=0?'\t':',';
+    for(i=0;i<lines.length;i++){
+      if(lines[i]==='')continue;
+      rows.push(lines[i].split(d).map(function(c){
+        c=c.trim();
+        if(c.length>=2&&c.charAt(0)==='"'&&c.charAt(c.length-1)==='"')c=c.slice(1,-1).replace(/""/g,'"');
+        return c;
+      }));
+    }
+    return rows;
+  }
+  /* ---- xlsx: ZIP 중앙 디렉터리 파싱 + deflate-raw 해제 (외부 라이브러리 없음) ---- */
+  function zipEntries(buf){
+    var dv=new DataView(buf),n=buf.byteLength,i=n-22,min=Math.max(0,n-65558),eocd=-1;
+    for(;i>=min;i--){if(dv.getUint32(i,true)===0x06054b50){eocd=i;break;}}
+    if(eocd<0)throw new Error('ZIP 형식이 아닙니다');
+    var cnt=dv.getUint16(eocd+10,true),off=dv.getUint32(eocd+16,true),ent={},p=off,e;
+    for(e=0;e<cnt;e++){
+      if(dv.getUint32(p,true)!==0x02014b50)throw new Error('ZIP 목록 손상');
+      var method=dv.getUint16(p+10,true),csz=dv.getUint32(p+20,true),
+          nl=dv.getUint16(p+28,true),xl=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),
+          lo=dv.getUint32(p+42,true),
+          name=new TextDecoder().decode(new Uint8Array(buf,p+46,nl));
+      ent[name]={m:method,sz:csz,off:lo};
+      p+=46+nl+xl+cl;
+    }
+    return ent;
+  }
+  function zipRead(buf,ent,name){
+    var e=ent[name];
+    if(!e)return Promise.resolve(null);
+    var dv=new DataView(buf);
+    if(dv.getUint32(e.off,true)!==0x04034b50)return Promise.reject(new Error('ZIP 항목 손상'));
+    var nl=dv.getUint16(e.off+26,true),xl=dv.getUint16(e.off+28,true);
+    var data=buf.slice(e.off+30+nl+xl,e.off+30+nl+xl+e.sz);
+    if(e.m===0)return Promise.resolve(data);
+    if(e.m!==8)return Promise.reject(new Error('지원하지 않는 압축 방식'));
+    if(typeof DecompressionStream==='undefined')return Promise.reject(new Error('NOXLSX'));
+    return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer();
+  }
+  function xml(buf){return new DOMParser().parseFromString(new TextDecoder().decode(buf),'text/xml');}
+  function colIdx(ref){ /* 'AB12' → 0기준 열 번호 */
+    var c=0,i,ch;
+    for(i=0;i<ref.length;i++){
+      ch=ref.charCodeAt(i);
+      if(ch>=65&&ch<=90)c=c*26+(ch-64);else break;
+    }
+    return c-1;
+  }
+  function xlsxRows(buf){
+    if(typeof DecompressionStream==='undefined')return Promise.reject(new Error('NOXLSX'));
+    var ent=zipEntries(buf);
+    return Promise.all([
+      zipRead(buf,ent,'xl/workbook.xml'),
+      zipRead(buf,ent,'xl/_rels/workbook.xml.rels'),
+      zipRead(buf,ent,'xl/sharedStrings.xml')
+    ]).then(function(rs){
+      if(!rs[0]||!rs[1])throw new Error('xlsx 구조 오류(workbook)');
+      var wbx=xml(rs[0]),relx=xml(rs[1]),sst=[],i,j;
+      if(rs[2]){
+        var sis=xml(rs[2]).getElementsByTagName('si');
+        for(i=0;i<sis.length;i++){
+          var ts=sis[i].getElementsByTagName('t'),str='';
+          for(j=0;j<ts.length;j++)str+=ts[j].textContent;
+          sst.push(str);
+        }
+      }
+      var rel={},rels=relx.getElementsByTagName('Relationship');
+      for(i=0;i<rels.length;i++)rel[rels[i].getAttribute('Id')]=rels[i].getAttribute('Target');
+      /* 시트 목록: 이름이 NDB 인 시트 최우선, 없으면 순서대로 훑으며 '미션회차' 헤더 시트 탐색 */
+      var shs=wbx.getElementsByTagName('sheet'),list=[],ndbT=null;
+      for(i=0;i<shs.length;i++){
+        var rid=shs[i].getAttribute('r:id')||shs[i].getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
+        var tgt=rel[rid];
+        if(!tgt)continue;
+        tgt=tgt.charAt(0)==='/'?tgt.slice(1):'xl/'+tgt;
+        if(shs[i].getAttribute('name')==='NDB')ndbT=tgt;else list.push(tgt);
+      }
+      if(ndbT)list.unshift(ndbT);
+      function sheetRows(sbuf){
+        var doc=xml(sbuf),rws=doc.getElementsByTagName('row'),out=[],ri,ci,f;
+        for(ri=0;ri<rws.length;ri++){
+          var cs=rws[ri].getElementsByTagName('c'),arr=[];
+          for(ci=0;ci<cs.length;ci++){
+            var c=cs[ci],t=c.getAttribute('t'),v='';
+            if(t==='inlineStr'){var isn=c.getElementsByTagName('t');v=isn.length?isn[0].textContent:'';}
+            else{
+              var vn=c.getElementsByTagName('v');
+              v=vn.length?vn[0].textContent:'';
+              if(t==='s')v=sst[parseInt(v,10)]||'';
+            }
+            var refA=c.getAttribute('r');
+            arr[refA?colIdx(refA):arr.length]=v;
+          }
+          for(f=0;f<arr.length;f++)if(arr[f]===undefined)arr[f]='';
+          out.push(arr);
+        }
+        return out;
+      }
+      function tryNext(ix){
+        if(ix>=list.length)return Promise.reject(new Error('"미션회차" 헤더가 있는 시트를 찾지 못했습니다'));
+        return zipRead(buf,ent,list[ix]).then(function(sb){
+          if(!sb)return tryNext(ix+1);
+          var rows=sheetRows(sb);
+          if(rows.length&&rows[0].some(function(x){return String(x).trim()==='미션회차';}))return rows;
+          return tryNext(ix+1);
+        });
+      }
+      return tryNext(0);
+    });
+  }
+  /* ---- 적용·복원·부팅 로드 ---- */
+  function msg(t){var el=$('dbMsg');if(el)el.textContent=t;}
+  function stateUI(){
+    var raw=null;try{raw=localStorage.getItem(NDBUP_KEY);}catch(e){}
+    var rb=$('dbReset');if(rb)rb.style.display=raw?'':'none';
+  }
+  function countProbs(arr){
+    var n=0,i,j;
+    for(i=0;i<arr.length;i++)for(j=0;j<arr[i].sets.length;j++)n+=arr[i].sets[j].ps.length;
+    return n;
+  }
+  function applyFile(f){
+    msg('확인 중…');
+    return f.arrayBuffer().then(function(buf){
+      return /\.xlsx$/i.test(f.name)?xlsxRows(buf):parseDelimited(decodeText(buf));
+    }).then(function(rows){
+      var cv=convert(rows);
+      if(cv.errs.length){msg('거부됨 — 오류 '+cv.errs.length+'건: '+cv.errs.slice(0,3).join(' · '));return false;}
+      var errs=swap(cv.ndb);
+      if(errs.length){msg('거부됨 — 무결성 오류 '+errs.length+'건: '+errs.slice(0,3).join(' · '));return false;}
+      var saved=true;
+      try{localStorage.setItem(NDBUP_KEY,JSON.stringify(cv.ndb));}catch(e){saved=false;}
+      renderHome();
+      stateUI();
+      msg('적용 완료 — 미션 '+NDB.length+' · 문항 '+countProbs(NDB)+(saved?' (재실행에도 유지)':' (저장 실패: 이번 실행만 적용)'));
+      return true;
+    }).catch(function(e){
+      msg(String(e&&e.message)==='NOXLSX'
+        ?'이 브라우저는 xlsx 해석을 지원하지 않습니다. TSV(탭 구분) 파일로 업로드해 주세요.'
+        :'파일을 읽지 못했습니다: '+((e&&e.message)||e));
+      return false;
+    });
+  }
+  function restore(){
+    var i;
+    NDB.length=0;for(i=0;i<NDB_BUILTIN.length;i++)NDB.push(NDB_BUILTIN[i]);
+    try{localStorage.removeItem(NDBUP_KEY);}catch(e){}
+    renderHome();
+    stateUI();
+    msg('내장 연산 데이터로 복원했습니다.');
+  }
+  function bootLoad(){
+    var raw=null;try{raw=localStorage.getItem(NDBUP_KEY);}catch(e){}
+    if(!raw)return;
+    var arr=null;try{arr=JSON.parse(raw);}catch(e){}
+    var bad=!arr||!arr.length||swap(arr).length>0;
+    if(bad){try{localStorage.removeItem(NDBUP_KEY);}catch(e){}} /* 손상 저장본 자동 폐기 → 내장 유지 */
+  }
+  return {convert:convert,swap:swap,applyFile:applyFile,restore:restore,bootLoad:bootLoad,
+    stateUI:stateUI,parseDelimited:parseDelimited,decodeText:decodeText,xlsxRows:xlsxRows,countProbs:countProbs};
+})();
+/* 데이터 가져오기 — db(연산 DB)는 v032 에서 실동작 연결, sc(점수)는 양식 스펙 확정 후 연결 */
 var PICKED={db:null,sc:null};
-function wireUpload(key,findId,fileId,applyId,nameId){
+function wireUpload(key,findId,fileId,applyId,nameId,onApply){
   $(findId).addEventListener('click',function(){$(fileId).click();});
   $(fileId).addEventListener('change',function(){
     var f=this.files&&this.files[0];
@@ -2240,11 +2519,14 @@ function wireUpload(key,findId,fileId,applyId,nameId){
     $(applyId).disabled=!f;
   });
   $(applyId).addEventListener('click',function(){
+    if(onApply){if(PICKED[key])onApply(PICKED[key]);return;}
     alert('입력 양식 스펙 확정 후 동작 예정입니다.');
   });
 }
-wireUpload('db','dbFind','dbFile','dbApply','dbFname');
+wireUpload('db','dbFind','dbFile','dbApply','dbFname',NDBUP.applyFile);
 wireUpload('sc','scFind','scFile','scApply','scFname');
+$('dbReset').addEventListener('click',function(){NDBUP.restore();buzz(8);});
+NDBUP.stateUI();
 /* 양식 이메일 요청 — 외부 폼 서비스(Formspree 등) POST 방식.
    ★ MAIL_ENDPOINT 를 실제 발급받은 URL로 교체해야 동작함. 빈 값이면 안내만 표시. */
 var MAIL_ENDPOINT=APP.mailEndpoint;
@@ -4151,6 +4433,7 @@ window.NPW={curProb:curProb,startSet:startSet,openSets:openSets,showResult:showR
   sha256hex:sha256hex,premOK:premOK,premTry:premTry,premNorm:premNorm,premApplyList:premApplyList,premList:premList,premSync:premSync,premEntry:premEntry,
   premOpen:premOpen,premClose:premClose,premPaint:premPaint,premGate:premGate,
   exitToWrong:exitToWrong,show:show,LSKEY:LSKEY,
+  NDBUP:NDBUP,NDBUP_KEY:NDBUP_KEY, /* v032 연산 DB 업로드 (테스트용) */
   playCheerSnd:playCheerSnd,cheerStop:cheerStop,unlockAudio:unlockAudio,
   cheerLastPlay:function(){return _cheerLast;},cheerBufOK:function(){return !!BUFS.cheer;}};
 
@@ -4160,6 +4443,7 @@ window.NPW={curProb:curProb,startSet:startSet,openSets:openSets,showResult:showR
   var miss=[];
   for(var i=0;i<need.length;i++)if(!document.getElementById(need[i]))miss.push(need[i]);
   if(miss.length!==0)throw new Error('화면 누락: '+miss.join(','));
+  NDBUP.bootLoad(); /* v032 업로드 연산 DB — 저장본 재검증 후 로드 (실패 시 자동 폐기, 내장 유지) */
   var errs=selfTest();
   if(errs.length)throw new Error('데이터 무결성 실패: '+errs.slice(0,5).join(' | '));
   if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0){
