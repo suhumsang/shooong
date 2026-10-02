@@ -942,6 +942,8 @@
       <div class="setrow"><div class="sl">사운드<small>효과음 (키패드 · 정답 · 등급 · 완주)</small></div><button class="tgl" id="tglSnd" aria-label="사운드 켜기/끄기"></button></div>
       <div class="setrow"><div class="sl">응원<small>코치 음성 · 자막은 항상 표시됩니다</small></div><button class="tgl" id="tglChr" aria-label="응원 켜기/끄기"></button></div>
       <div class="setrow"><div class="sl">햅틱<small>안드로이드 기기에서 동작</small></div><button class="tgl" id="tglHpt" aria-label="햅틱 켜기/끄기"></button></div>
+      <div class="setrow"><div class="sl">키보드<small>숫자 키 배열</small></div>
+        <div class="seg3" id="segKbd"><button data-kbd="calc" class="sel">컴퓨터</button><button data-kbd="phone">전화기</button></div></div>
       <div class="setrow"><div class="sl">컬러모드</div>
         <div class="seg3" id="segCmode"><button data-c="sys" class="sel">시스템</button><button data-c="light">라이트</button><button data-c="dark">칠판</button></div></div>
     </div>
@@ -1216,7 +1218,7 @@ var APP={
   nameEN:'Shooong',         /* 파일명·전송 페이로드용 (영문 고정) */
   slug:'shooong',           /* 저장키·파일명 접두어 (영문 소문자) */
   theme:'choco',            /* 기본 테마: choco|yellow|navy|mint|green */
-  ver:'V02.35',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
+  ver:'V02.37',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
                                ⚠ 소수점 뒤 = sw.js CACHE 'shooong-vNNN' 의 릴리스 번호 (사용자 확정 20260817).
                                  배포 반영 여부를 화면에서 눈으로 확인하려고 붙였다.
                                  릴리스마다 sw.js CACHE 와 이 값을 반드시 같이 올려라 — pwtest_c 가 불일치를 잡는다 */
@@ -1974,6 +1976,7 @@ var PREM={
   keys:[   /* v034: DEV 상시 · 6키 exp=2026-09-13 (09-14 자정부터 자동 차단). 내장 대체본. 다음주 새 멤버 시 재발급 */
     {id:'DEV',h:'7c06da6340776d3521e0a6717e977589c4eece1e3467fc477fb7767c942cc7f5'},
     {id:'B01',h:'57441a3e1b9e301ebd0a1ed5d4addfdecbb35ba62492609470076e6a7843c847'},   /* v035 새 멤버 추가(상시) */
+    {id:'B02',h:'fa184bc76545b8ab22ad925848d9a5a7e058f4dc0305f25807eb19e39c9bd842'},   /* v036 새 멤버 추가(상시) */
     {id:'A01',h:'92ce37d4232087d9b8b16f8607f5b941a44e295370e2645ad97483da61c47af4',exp:'2026-09-13'},
     {id:'A06',h:'856899c4d50bd913c1b5f9248a07bf6bcd4b11ef24ddd71ab1a3f017953dcd05',exp:'2026-09-13'},
     {id:'A07',h:'aab4f0241d7a09985f1b2851f609827a4320495ab548a85854c1097f6556a550',exp:'2026-09-13'},
@@ -2172,7 +2175,7 @@ $('guideBack').addEventListener('click',function(){show('setting');});
 var THEMES=['choco','yellow','navy','mint','green'];
 function prefGet(){
   var d=DBS.get();
-  if(!d.pref)d.pref={snd:1,hpt:1,chr:1,cmode:'sys',theme:APP.theme};
+  if(!d.pref)d.pref={snd:1,hpt:1,chr:1,cmode:'sys',theme:APP.theme,kbd:'calc'};
   if(typeof d.pref.theme!=='string'||THEMES.indexOf(d.pref.theme)<0)d.pref.theme=APP.theme;
   return d.pref;
 }
@@ -2184,6 +2187,19 @@ function applyCmode(){
   document.documentElement.setAttribute('data-cmode',eff);
 }
 if(_mqDark&&_mqDark.addEventListener)_mqDark.addEventListener('change',function(){if(prefGet().cmode==='sys')applyCmode();});
+/* 키패드 숫자 배열: calc(계산기·7이 위, 기본) / phone(전화기·1이 위). 버튼 핸들러는 data-k||textContent 로 읽어 재배열 안전. */
+function padHTML(delLabel){
+  var phone=(prefGet().kbd==='phone');
+  var rows=phone?[[1,2,3],[4,5,6],[7,8,9]]:[[7,8,9],[4,5,6],[1,2,3]];
+  var h='';
+  for(var r=0;r<3;r++)h+='<button>'+rows[r][0]+'</button><button>'+rows[r][1]+'</button><button>'+rows[r][2]+'</button>';
+  h+='<button class="sm blank" tabindex="-1" aria-hidden="true">C</button><button>0</button><button class="sm" data-k="DEL">'+delLabel+'</button>';
+  return h;
+}
+function applyKbd(){
+  var a=$('actPad'); if(a)a.innerHTML=padHTML('BS');
+  var f=$('flashPad'); if(f)f.innerHTML=padHTML('DEL'); /* 컨테이너 class(lock)·리스너는 유지, 버튼만 교체 */
+}
 function renderPref(){
   var p=prefGet();
   $('tglSnd').classList.toggle('on',!!p.snd);
@@ -2191,9 +2207,12 @@ function renderPref(){
   $('tglHpt').classList.toggle('on',!!p.hpt);
   var bs=$('segCmode').querySelectorAll('button');
   for(var i=0;i<bs.length;i++)bs[i].classList.toggle('sel',bs[i].getAttribute('data-c')===p.cmode);
+  var kcur=(p.kbd==='phone')?'phone':'calc';
+  var kb=$('segKbd').querySelectorAll('button');
+  for(var k=0;k<kb.length;k++)kb[k].classList.toggle('sel',kb[k].getAttribute('data-kbd')===kcur);
   var sw=$('swRow').querySelectorAll('.sw');
   for(var j=0;j<sw.length;j++)sw[j].classList.toggle('sel',sw[j].getAttribute('data-t')===p.theme);
-  applyTheme();applyCmode();
+  applyTheme();applyCmode();applyKbd();
 }
 $('swRow').addEventListener('click',function(e){
   var b=e.target.closest('.sw');if(!b)return;
@@ -2205,6 +2224,10 @@ $('tglHpt').addEventListener('click',function(){var p=prefGet();p.hpt=p.hpt?0:1;
 $('segCmode').addEventListener('click',function(e){
   var b=e.target.closest('button');if(!b)return;
   var p=prefGet();p.cmode=b.getAttribute('data-c');DBS.save();renderPref();
+});
+$('segKbd').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;
+  var p=prefGet();p.kbd=(b.getAttribute('data-kbd')==='phone')?'phone':'calc';DBS.save();renderPref();buzz(8);
 });
 /* 플래시 속도 레벨 — 수동 스테퍼 (자동 승급/강등은 보류: 규칙 확정 시 setFlashLv 에만 붙이면 됨) */
 function setFlashLv(lv){
