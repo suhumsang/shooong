@@ -225,6 +225,14 @@
     font-variant-numeric:tabular-nums;
     line-height:1.15;margin-top:12px;min-height:1.15em;text-align:right}
   .sum .ans-num.bad{color:var(--bad)}
+  /* 가로셈(덧·뺄) — 한 줄 배치. 키패드·채점 로직은 세로셈과 동일(S.input vs p.ans). */
+  .sum.hz{padding-left:0;text-align:center}
+  .sum .hln{display:flex;align-items:baseline;justify-content:center;flex-wrap:wrap;gap:.22em;
+    font-size:clamp(34px,10vw,50px);font-weight:300;color:var(--key-ink);letter-spacing:.02em;line-height:1.3}
+  .sum .hln .op,.sum .hln .eq{font-weight:300}
+  .sum .hln .ans-num{margin-top:0;min-width:1.2em;text-align:left;border-bottom:2px solid var(--key-ink)}
+  .sum.hz.retry .hln,.sum.hz.retry .hln .ans-num{color:var(--bad)}
+  .sum.hz.retry .hln .ans-num{border-bottom-color:var(--bad)}
   .keypad{display:grid;grid-template-columns:repeat(3,1fr);margin-top:auto;margin-bottom:0;
     background:var(--bg)}
   .keypad button{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
@@ -944,6 +952,8 @@
       <div class="setrow"><div class="sl">햅틱<small>안드로이드 기기에서 동작</small></div><button class="tgl" id="tglHpt" aria-label="햅틱 켜기/끄기"></button></div>
       <div class="setrow"><div class="sl">키보드<small>숫자 키 배열</small></div>
         <div class="seg3" id="segKbd"><button data-kbd="calc" class="sel">컴퓨터</button><button data-kbd="phone">전화기</button></div></div>
+      <div class="setrow"><div class="sl">덧셈·뺄셈<small>셈 표시 방식</small></div>
+        <div class="seg3" id="segSum"><button data-sum="v" class="sel">세로셈</button><button data-sum="h">가로셈</button></div></div>
       <div class="setrow"><div class="sl">컬러모드</div>
         <div class="seg3" id="segCmode"><button data-c="sys" class="sel">시스템</button><button data-c="light">라이트</button><button data-c="dark">칠판</button></div></div>
     </div>
@@ -1218,7 +1228,7 @@ var APP={
   nameEN:'Shooong',         /* 파일명·전송 페이로드용 (영문 고정) */
   slug:'shooong',           /* 저장키·파일명 접두어 (영문 소문자) */
   theme:'choco',            /* 기본 테마: choco|yellow|navy|mint|green */
-  ver:'V02.37',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
+  ver:'V02.38',             /* 화면 우상단 버전 표기. 슈우웅 자체 버전 계보 — 구(nOpen) v0.5x 계보와 별개 (사용자 확정)
                                ⚠ 소수점 뒤 = sw.js CACHE 'shooong-vNNN' 의 릴리스 번호 (사용자 확정 20260817).
                                  배포 반영 여부를 화면에서 눈으로 확인하려고 붙였다.
                                  릴리스마다 sw.js CACHE 와 이 값을 반드시 같이 올려라 — pwtest_c 가 불일치를 잡는다 */
@@ -2175,7 +2185,7 @@ $('guideBack').addEventListener('click',function(){show('setting');});
 var THEMES=['choco','yellow','navy','mint','green'];
 function prefGet(){
   var d=DBS.get();
-  if(!d.pref)d.pref={snd:1,hpt:1,chr:1,cmode:'sys',theme:APP.theme,kbd:'calc'};
+  if(!d.pref)d.pref={snd:1,hpt:1,chr:1,cmode:'sys',theme:APP.theme,kbd:'calc',sumh:'v'};
   if(typeof d.pref.theme!=='string'||THEMES.indexOf(d.pref.theme)<0)d.pref.theme=APP.theme;
   return d.pref;
 }
@@ -2210,6 +2220,9 @@ function renderPref(){
   var kcur=(p.kbd==='phone')?'phone':'calc';
   var kb=$('segKbd').querySelectorAll('button');
   for(var k=0;k<kb.length;k++)kb[k].classList.toggle('sel',kb[k].getAttribute('data-kbd')===kcur);
+  var scur=(p.sumh==='h')?'h':'v';
+  var sb=$('segSum').querySelectorAll('button');
+  for(var s=0;s<sb.length;s++)sb[s].classList.toggle('sel',sb[s].getAttribute('data-sum')===scur);
   var sw=$('swRow').querySelectorAll('.sw');
   for(var j=0;j<sw.length;j++)sw[j].classList.toggle('sel',sw[j].getAttribute('data-t')===p.theme);
   applyTheme();applyCmode();applyKbd();
@@ -2228,6 +2241,10 @@ $('segCmode').addEventListener('click',function(e){
 $('segKbd').addEventListener('click',function(e){
   var b=e.target.closest('button');if(!b)return;
   var p=prefGet();p.kbd=(b.getAttribute('data-kbd')==='phone')?'phone':'calc';DBS.save();renderPref();buzz(8);
+});
+$('segSum').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;
+  var p=prefGet();p.sumh=(b.getAttribute('data-sum')==='h')?'h':'v';DBS.save();renderPref();buzz(8);
 });
 /* 플래시 속도 레벨 — 수동 스테퍼 (자동 승급/강등은 보류: 규칙 확정 시 setFlashLv 에만 붙이면 됨) */
 function setFlashLv(lv){
@@ -3435,11 +3452,18 @@ function renderAction(p,red){
   $('actProg').textContent=progText();
   $('actTime').textContent=S.mode==='play'?timeNow().toFixed(1):'';
   var sum=$('actSum');
-  sum.className=red?'sum retry':'sum';
   var op=p.t==='add'?'+':(p.t==='sub'?'−':'×');
-  sum.innerHTML='<div class="ln"><span>'+p.a+'</span></div>'
-    +'<div class="ln"><span class="op">'+op+'</span><span>'+p.b+'</span></div>'
-    +'<div class="rule"></div><div class="ans-num" id="actAns">&nbsp;</div>';
+  /* 가로셈: 덧·뺄만 (곱셈은 항상 세로셈). 기존 유저(sumh 미설정)=세로셈. */
+  var horiz=(p.t==='add'||p.t==='sub')&&prefGet().sumh==='h';
+  if(horiz){
+    sum.className=red?'sum hz retry':'sum hz';
+    sum.innerHTML='<div class="hln"><span>'+p.a+'</span><span class="op">'+op+'</span><span>'+p.b+'</span><span class="eq">=</span><span class="ans-num" id="actAns">&nbsp;</span></div>';
+  }else{
+    sum.className=red?'sum retry':'sum';
+    sum.innerHTML='<div class="ln"><span>'+p.a+'</span></div>'
+      +'<div class="ln"><span class="op">'+op+'</span><span>'+p.b+'</span></div>'
+      +'<div class="rule"></div><div class="ans-num" id="actAns">&nbsp;</div>';
+  }
   show('action');
 }
 function renderInput(){
